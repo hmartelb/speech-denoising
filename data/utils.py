@@ -49,6 +49,8 @@ def save_waveforms(audios, sr, base_dir):
     for i,audio in enumerate(audios):
         if not torch.is_tensor(audio):
             audio = torch.tensor(audio)
+        if audio.dim() == 1:
+            audio = audio.unsqueeze(0)
         filename = os.path.join(base_dir, f"{i}.wav")
         torchaudio.save(filename, audio, sr)
 
