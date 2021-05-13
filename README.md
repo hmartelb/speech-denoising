@@ -5,8 +5,10 @@ Audio Denoising project for the Deep Learning course at Tsinghua University, Spr
 ## Code organization
 
 ```
-/data: "Functions to load the datasets and generate data augmentations.
+/data: "Functions to load the datasets and generate data augmentations."
     __init__.py
+    UrbanSound8K.py
+    utils.py
 
 /evaluation: "Common metrics to evaluate the results"
     __init__.py
