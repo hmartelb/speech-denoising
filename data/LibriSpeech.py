@@ -1,36 +1,24 @@
 import argparse
 import os
-import tarfile
 
-import numpy as np
-import pandas as pd
-import requests
 import torch
 import torchaudio
 from torch.utils.data import Dataset
-from tqdm import tqdm
 
 
-class UrbanSound8KDataset(Dataset):
+class LibriSpeechDataset(Dataset):
     '''
-    UrbanSound8KDataset (Pytorch Dataset)
-    Class containing the data loader for the UrbanSound8K dataset.
+    LibriSpeechDataset (Pytorch Dataset)
+    Class containing the data loader for the LibriSpeech dataset using the LibriSpeech class provided in torchaudio.
 
     '''
 
-    def __init__(self, file_path, folders, csv_name='UrbanSound8K.csv', original_sr=44100, target_sr=16000, length_seconds=4):
-        # Check if the dataset exists, download dataset otherwise
-        self.file_path = file_path
-        self._try_download()
+    def __init__(self, dataset_path, split, original_sr=16000, target_sr=16000, length_seconds=4):
+        self.dataset_path = dataset_path
+        self.split = split
 
-        # Load the file_names, labels and folders
-        data = pd.read_csv(os.path.join(file_path, 'metadata', csv_name))
-        self.file_names = [data['slice_file_name'].iloc[i]
-                           for i in range(len(data)) if data['fold'].iloc[i] in folders]
-        self.labels = [data['class'].iloc[i]
-                       for i in range(len(data)) if data['fold'].iloc[i] in folders]
-        self.folders = [data['fold'].iloc[i] for i in range(
-            len(data)) if data['fold'].iloc[i] in folders]
+        self.data = torchaudio.datasets.LIBRISPEECH(
+            dataset_path, url=split, download=True)
 
         # Audio transformations
         self.original_sr = original_sr
@@ -39,45 +27,18 @@ class UrbanSound8KDataset(Dataset):
         self.resampling_fn = torchaudio.transforms.Resample(
             orig_freq=original_sr, new_freq=target_sr)
 
-    def _try_download(self):
-        if not os.path.isdir(self.file_path):
-            os.makedirs(self.file_path)
-            filename = os.path.join(self.file_path, 'UrbanSound8K.tar.gz')
-            zenodo_url = 'https://zenodo.org/record/1203745/files/UrbanSound8K.tar.gz?download=1'
-            print(f'UrbanSound8K will be downloaded from {zenodo_url}')
-            print(f'Destination path: {self.file_path}')
-
-            print("\nDownload started:")
-            r = requests.get(zenodo_url, stream=True)
-            total = int(r.headers.get('content-length', 0))
-            with open(filename, 'wb') as file, tqdm(
-                    desc=filename,
-                    total=total,
-                    unit='iB',
-                    unit_scale=True,
-                    unit_divisor=1024,
-            ) as bar:
-                for data in r.iter_content(chunk_size=1024):
-                    size = file.write(data)
-                    bar.update(size)
-
-            print(f"\nExtracting file: {filename}")
-            with tarfile.open(filename, "r:gz") as tar:
-                tar.extractall()
-
     @property
     def segment_length(self):
         return self.target_sr * self.length_seconds
 
     def __getitem__(self, index):
-        filename = os.path.join(
-            self.file_path, 'audio', f'fold{self.folders[index]}', self.file_names[index])
+        # self.data returns a tuple: (audio, sr, utterance, speaker_id, chapter_id, utterance_id)
+        audio, _, utterance = self.data[index][0:3]
+        # TODO: Maybe change this so that the audio is not permuted twice
+        audio = audio.permute(1, 0)
 
-        # Load and downmix to mono
-        audio = torchaudio.load(filename, normalize=True)
-        audio = torch.mean(audio[0], dim=0).unsqueeze(1)
-
-        # Resample from 44.1kHz to target_sr (default: 16kHz)
+        # Resample from 16kHz to target_sr (default: 16kHz)
+        # TODO: Is this step necessary? LibriSpeech sr is 16000
         if self.original_sr != self.target_sr:
             audio = self.resampling_fn(audio)
 
@@ -89,10 +50,10 @@ class UrbanSound8KDataset(Dataset):
             audio = audio[:self.segment_length]
 
         audio = audio.permute(1, 0)
-        return audio, self.labels[index]
+        return audio, utterance
 
     def __len__(self):
-        return len(self.file_names)
+        return len(self.data)
 
 
 if __name__ == '__main__':
@@ -108,15 +69,15 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-    train_data = UrbanSound8KDataset(
+    train_data = LibriSpeechDataset(
         args.dataset_path,
-        folders=range(1, 10),
+        split="train-clean-100",
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )
-    test_data = UrbanSound8KDataset(
+    test_data = LibriSpeechDataset(
         args.dataset_path,
-        folders=[10],
+        split="test-clean",
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )
@@ -134,13 +95,14 @@ if __name__ == '__main__':
 
     from utils import plot_waveforms, save_waveforms
 
-    UNIT_TESTS_DIR = os.path.join('unit_tests', 'UrbanSound8K')
+    UNIT_TESTS_DIR = os.path.join('unit_tests', 'LibriSpeech-100')
     if not os.path.isdir(UNIT_TESTS_DIR):
         os.makedirs(UNIT_TESTS_DIR)
 
     train_first_item, _ = train_data[0]
     print(train_first_item[0].shape)
-    plot_waveforms(train_first_item, to_file=os.path.join(UNIT_TESTS_DIR, 'train_single.png'))
+    plot_waveforms(train_first_item, to_file=os.path.join(
+        UNIT_TESTS_DIR, 'train_single.png'))
     save_waveforms(train_first_item, args.target_sr,
                    os.path.join(UNIT_TESTS_DIR, 'train_single'))
 
@@ -149,7 +111,8 @@ if __name__ == '__main__':
 
     test_first_item, _ = test_data[0]
     print(test_first_item[0].shape)
-    plot_waveforms(test_first_item, to_file=os.path.join(UNIT_TESTS_DIR, 'test_single.png'))
+    plot_waveforms(test_first_item, to_file=os.path.join(
+        UNIT_TESTS_DIR, 'test_single.png'))
     save_waveforms(test_first_item, args.target_sr,
                    os.path.join(UNIT_TESTS_DIR, 'test_single'))
 
