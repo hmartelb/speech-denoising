@@ -53,6 +53,10 @@ In addition, the following audio augmentation packages are used:
 * 
 * WavAugment (Facebook): [https://github.com/facebookresearch/WavAugment](https://github.com/facebookresearch/WavAugment)
 
+## Evaluation
+
+speechmetrics: [https://github.com/aliutkus/speechmetrics](https://github.com/aliutkus/speechmetrics)
+
 ## License 
 ```
 MIT License
