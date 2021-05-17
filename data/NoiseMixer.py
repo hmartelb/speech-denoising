@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 
 import torch
@@ -24,9 +25,18 @@ class NoiseMixerDataset(Dataset):
 
         # NOTE: We need to use the PyTorch random number generator (and not Numpy!) to select the random value of SNR.
         # https://tanelp.github.io/posts/a-bug-that-plagues-thousands-of-open-source-ml-projects/
-        snr = (self.max_snr-self.min_snr)*torch.rand(1) + self.min_snr
+        snr_db = (self.max_snr-self.min_snr)*torch.rand(1) + self.min_snr
 
-        mixture = audio + (noise / (10.0**(0.05*snr)))
+        # Formula to add the background noise from SNR.
+        # https://pytorch.org/tutorials/beginner/audio_preprocessing_tutorial.html#adding-background-noise
+        audio_power = audio.norm(p=2)
+        noise_power = noise.norm(p=2)
+
+        snr = math.exp(snr_db / 10)
+        scale = snr * noise_power / audio_power
+        mixture = (scale * audio + noise) / 2
+        # mixture = audio + (noise / (10.0**(0.05*snr))) # TODO: Is this equivalent ?
+
         return mixture, torch.cat([audio, noise], dim=0)
 
     def __len__(self):
@@ -66,14 +76,16 @@ if __name__ == '__main__':
 
     train_data = NoiseMixerDataset(
         clean_dataset=train_clean_dataset,
-        noise_dataset=train_noise_dataset
+        noise_dataset=train_noise_dataset,
+        min_snr=0,
+        max_snr=30
     )
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    from tests import shape_test, waveforms_test, iteration_test
+    from tests import iteration_test, shape_test, waveforms_test
 
     UNIT_TESTS_DIR = os.path.join('unit_tests', 'NoiseMixer')
     if not os.path.isdir(UNIT_TESTS_DIR):
