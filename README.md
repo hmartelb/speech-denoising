@@ -50,7 +50,7 @@ We use datasets of clean speech data and noise, which are combined to produce th
 * Dataset download: [https://zenodo.org/record/401395#.YJwKzuhKiUk](https://zenodo.org/record/401395#.YJwKzuhKiUk)
 * Example of data loader (Kaggle): [https://www.kaggle.com/ronyroy/torchaudio-urban-sounds-8k](https://www.kaggle.com/ronyroy/torchaudio-urban-sounds-8k) 
 
-> Note: After downloading the UrbanSound8K it is recommended to preprocess it using the ``resample_dataset.py`` script. This script generates a precomputed version of the dataset with the target sampling rate (default: 16kHz) and downmixed to mono, to speed up the data loading. Use example:
+> Note: After downloading the UrbanSound8K it is recommended to preprocess it using the ``resample_dataset.py`` script. This script generates a precomputed version of the dataset with the target sampling rate (default: 16kHz) and downmixed to mono, to speed up the data loading. **You may need to copy the /metadata folder by hand in the resampled dataset**. Use example:
 ```
 (venv) python resample_dataset.py --dataset_path <path-to-UrbanSound8K>
                                   --resampled_path <path-to-UrbanSound8K_16kHz>
