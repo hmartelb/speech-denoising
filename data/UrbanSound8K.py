@@ -111,14 +111,12 @@ if __name__ == '__main__':
     train_data = UrbanSound8KDataset(
         args.dataset_path,
         folders=range(1, 10),
-        original_sr=args.original_sr,
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )
     test_data = UrbanSound8KDataset(
         args.dataset_path,
         folders=[10],
-        original_sr=args.original_sr,
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )

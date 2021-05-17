@@ -91,33 +91,53 @@ if __name__ == '__main__':
 
     * Single example
     * Batch (data loader)
+    * Iteration test (data loader)
     '''
 
     from utils import plot_waveforms, save_waveforms
+    from tests import shape_test, waveforms_test, iteration_test
 
-    UNIT_TESTS_DIR = os.path.join('unit_tests', 'LibriSpeech-100')
-    if not os.path.isdir(UNIT_TESTS_DIR):
-        os.makedirs(UNIT_TESTS_DIR)
+    # UNIT_TESTS_DIR = os.path.join('unit_tests', 'LibriSpeech-100')
+    # if not os.path.isdir(UNIT_TESTS_DIR):
+    #     os.makedirs(UNIT_TESTS_DIR)
 
-    train_first_item, _ = train_data[0]
-    print(train_first_item[0].shape)
-    plot_waveforms(train_first_item, to_file=os.path.join(
-        UNIT_TESTS_DIR, 'train_single.png'))
-    save_waveforms(train_first_item, args.target_sr,
-                   os.path.join(UNIT_TESTS_DIR, 'train_single'))
+    # train_first_item, _ = train_data[0]
+    # print(train_first_item[0].shape)
+    # plot_waveforms(train_first_item, to_file=os.path.join(
+    #     UNIT_TESTS_DIR, 'train_single.png'))
+    # save_waveforms(train_first_item, args.target_sr,
+    #                os.path.join(UNIT_TESTS_DIR, 'train_single'))
 
-    assert list(train_first_item[0].shape) == [
-        args.target_sr*args.length_seconds], "Wrong output shape in single example (train)"
+    # assert list(train_first_item[0].shape) == [
+    #     args.target_sr*args.length_seconds], "Wrong output shape in single example (train)"
 
-    test_first_item, _ = test_data[0]
-    print(test_first_item[0].shape)
-    plot_waveforms(test_first_item, to_file=os.path.join(
-        UNIT_TESTS_DIR, 'test_single.png'))
-    save_waveforms(test_first_item, args.target_sr,
-                   os.path.join(UNIT_TESTS_DIR, 'test_single'))
+    # test_first_item, _ = test_data[0]
+    # print(test_first_item[0].shape)
+    # plot_waveforms(test_first_item, to_file=os.path.join(
+    #     UNIT_TESTS_DIR, 'test_single.png'))
+    # save_waveforms(test_first_item, args.target_sr,
+    #                os.path.join(UNIT_TESTS_DIR, 'test_single'))
 
-    assert list(test_first_item[0].shape) == [
-        args.target_sr*args.length_seconds], "Wrong output shape in single example (test)"
+    # assert list(test_first_item[0].shape) == [
+    #     args.target_sr*args.length_seconds], "Wrong output shape in single example (test)"
+
+    # SEGMENT_LENGTH = args.target_sr*args.length_seconds
+
+    # shape_test(train_data, [1,SEGMENT_LENGTH], split='train')
+    # waveforms_test(
+    #     train_data, 
+    #     sr=args.target_sr, 
+    #     plot_filename=os.path.join(UNIT_TESTS_DIR, 'train_single.png'),
+    #     audios_dir=os.path.join(UNIT_TESTS_DIR, 'train_single')
+    # )
+
+    # shape_test(train_data, [1,SEGMENT_LENGTH], split='test')
+    # waveforms_test(
+    #     test_data, 
+    #     sr=args.target_sr, 
+    #     plot_filename=os.path.join(UNIT_TESTS_DIR, 'test_single.png'),
+    #     audios_dir=os.path.join(UNIT_TESTS_DIR, 'test_single')
+    # )
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
     train_loader = torch.utils.data.DataLoader(
@@ -125,24 +145,42 @@ if __name__ == '__main__':
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    for batch in train_loader:
-        train_first_batch, _ = batch
-        break
-    print(train_first_batch.shape)
-    plot_waveforms([train_first_batch[i, :]
-                   for i in range(train_first_batch.shape[0])], to_file=os.path.join(UNIT_TESTS_DIR, 'train_batch.png'))
-    save_waveforms([train_first_batch[i, :] for i in range(
-        train_first_batch.shape[0])], args.target_sr, os.path.join(UNIT_TESTS_DIR, 'train_batch'))
-    assert list(train_first_batch.shape) == [
-        args.batch_size, 1, args.target_sr*args.length_seconds], "Wrong output shape in batch (train)"
+    # shape_test(train_loader, [args.batch_size, 1, SEGMENT_LENGTH])
+    # waveforms_test(
+    #     train_loader, 
+    #     sr=args.target_sr, 
+    #     plot_filename=os.path.join(UNIT_TESTS_DIR, 'train_batch.png'),
+    #     audios_dir=os.path.join(UNIT_TESTS_DIR, 'train_batch')
+    # )
 
-    for batch in test_loader:
-        test_first_batch, _ = batch
-        break
-    print(test_first_batch.shape)
-    plot_waveforms([test_first_batch[i, :]
-                   for i in range(test_first_batch.shape[0])], to_file=os.path.join(UNIT_TESTS_DIR, 'test_batch.png'))
-    save_waveforms([test_first_batch[i, :] for i in range(
-        test_first_batch.shape[0])], args.target_sr, os.path.join(UNIT_TESTS_DIR, 'test_batch'))
-    assert list(test_first_batch.shape) == [
-        args.batch_size, 1, args.target_sr*args.length_seconds], "Wrong output shape in batch (test)"
+    # shape_test(test_loader, [args.batch_size, 1, SEGMENT_LENGTH])
+    # waveforms_test(
+    #     test_loader, 
+    #     sr=args.target_sr, 
+    #     plot_filename=os.path.join(UNIT_TESTS_DIR, 'test_batch.png'),
+    #     audios_dir=os.path.join(UNIT_TESTS_DIR, 'test_batch')
+    # )
+
+    # for batch in train_loader:
+    #     train_first_batch, _ = batch
+    #     break
+    # print(train_first_batch.shape)
+    # plot_waveforms([train_first_batch[i, :]
+    #                for i in range(train_first_batch.shape[0])], to_file=os.path.join(UNIT_TESTS_DIR, 'train_batch.png'))
+    # save_waveforms([train_first_batch[i, :] for i in range(
+    #     train_first_batch.shape[0])], args.target_sr, os.path.join(UNIT_TESTS_DIR, 'train_batch'))
+    # assert list(train_first_batch.shape) == [
+    #     args.batch_size, 1, args.target_sr*args.length_seconds], "Wrong output shape in batch (train)"
+
+    # for batch in test_loader:
+    #     test_first_batch, _ = batch
+    #     break
+    # print(test_first_batch.shape)
+    # plot_waveforms([test_first_batch[i, :]
+    #                for i in range(test_first_batch.shape[0])], to_file=os.path.join(UNIT_TESTS_DIR, 'test_batch.png'))
+    # save_waveforms([test_first_batch[i, :] for i in range(
+    #     test_first_batch.shape[0])], args.target_sr, os.path.join(UNIT_TESTS_DIR, 'test_batch'))
+    # assert list(test_first_batch.shape) == [
+    #     args.batch_size, 1, args.target_sr*args.length_seconds], "Wrong output shape in batch (test)"
+
+    iteration_test(train_loader)
