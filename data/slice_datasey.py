@@ -15,7 +15,7 @@ def find_files(directory, extensions=('.mp3', '.wav', '.flac')):
             if filename.endswith(extensions):
                 yield filename
 
-def process_file(input_filename, output_dir, length_seconds=4):
+def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
     try:
         base_path, filename = os.path.split(input_filename)
         name, ext = os.path.splitext(filename)
@@ -23,7 +23,7 @@ def process_file(input_filename, output_dir, length_seconds=4):
         audio, sr = torchaudio.load(input_filename)
 
         segment_length = sr * length_seconds
-        n_segments = (audio.shape[1] // segment_length) + 1
+        n_segments = (audio.shape[1] // segment_length) + (1 if pad_last else 0)
 
         # Zero pad the last segment if needed
         pad = (n_segments * segment_length) - len(audio)
@@ -47,6 +47,7 @@ if __name__ == '__main__':
     ap.add_argument('--dataset_path', required=True)
     ap.add_argument('--sliced_path', required=True)
     ap.add_argument('--length_seconds', default=4, type=int)
+    ap.add_argument('--pad_last', action='store_true')
     args = ap.parse_args()
 
     if not os.path.isdir(args.sliced_path):
@@ -62,4 +63,4 @@ if __name__ == '__main__':
             os.makedirs(dir_out)
 
         # Process the audio file
-        process_file(f_in, dir_out, length_seconds=args.length_seconds)
+        process_file(f_in, dir_out, length_seconds=args.length_seconds, pad_last=args.pad_last)
