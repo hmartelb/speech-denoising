@@ -73,7 +73,7 @@ if __name__ == '__main__':
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    from tests import shape_test, waveforms_test
+    from tests import shape_test, waveforms_test, iteration_test
 
     UNIT_TESTS_DIR = os.path.join('unit_tests', 'NoiseMixer')
     if not os.path.isdir(UNIT_TESTS_DIR):
@@ -96,3 +96,5 @@ if __name__ == '__main__':
         plot_filename=os.path.join(UNIT_TESTS_DIR, 'train_batch.png'),
         audios_dir=os.path.join(UNIT_TESTS_DIR, 'train_batch')    
     )
+
+    iteration_test(train_loader)

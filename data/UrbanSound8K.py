@@ -18,7 +18,7 @@ class UrbanSound8KDataset(Dataset):
 
     '''
 
-    def __init__(self, file_path, folders, csv_name='UrbanSound8K.csv', original_sr=44100, target_sr=16000, length_seconds=4):
+    def __init__(self, file_path, folders, csv_name='UrbanSound8K.csv', target_sr=16000, length_seconds=4):
         # Check if the dataset exists, download dataset otherwise
         self.file_path = file_path
         self._try_download()
@@ -33,11 +33,8 @@ class UrbanSound8KDataset(Dataset):
             len(data)) if data['fold'].iloc[i] in folders]
 
         # Audio transformations
-        self.original_sr = original_sr
         self.target_sr = target_sr
         self.length_seconds = length_seconds
-        self.resampling_fn = torchaudio.transforms.Resample(
-            orig_freq=original_sr, new_freq=target_sr)
 
     def _try_download(self):
         if not os.path.isdir(self.file_path):
@@ -73,14 +70,16 @@ class UrbanSound8KDataset(Dataset):
         filename = os.path.join(
             self.file_path, 'audio', f'fold{self.folders[index]}', self.file_names[index])
 
-        # Load and downmix to mono
-        audio = torchaudio.load(filename, normalize=True)
-        audio = torch.mean(audio[0], dim=0).unsqueeze(1)
+        # Load and (downmix to mono if needed)
+        audio, original_sr = torchaudio.load(filename)
+        if audio.shape[0] > 1:
+            audio = torch.mean(audio, dim=0).unsqueeze(0)
 
-        # Resample from 44.1kHz to target_sr (default: 16kHz)
-        if self.original_sr != self.target_sr:
-            audio = self.resampling_fn(audio)
+        # Resample from original_sr to target_sr (default: 16kHz)
+        if original_sr != self.target_sr:
+            audio = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=self.target_sr)(audio)
 
+        audio = audio.permute(1, 0)
         # Return a fixed-length segment
         pad = self.segment_length - audio.shape[0]
         if pad > 0:
@@ -98,9 +97,10 @@ class UrbanSound8KDataset(Dataset):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--dataset_path', required=True)
+    ap.add_argument('--original_sr', default=44100, type=int)
     ap.add_argument('--target_sr', default=16000, type=int)
     ap.add_argument('--length_seconds', default=4, type=int)
-    ap.add_argument('--batch_size', default=4, type=int)
+    ap.add_argument('--batch_size', default=16, type=int)
     ap.add_argument('--gpu', default='-1')
     args = ap.parse_args()
 
@@ -111,12 +111,14 @@ if __name__ == '__main__':
     train_data = UrbanSound8KDataset(
         args.dataset_path,
         folders=range(1, 10),
+        original_sr=args.original_sr,
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )
     test_data = UrbanSound8KDataset(
         args.dataset_path,
         folders=[10],
+        original_sr=args.original_sr,
         target_sr=args.target_sr,
         length_seconds=args.length_seconds
     )
@@ -133,8 +135,9 @@ if __name__ == '__main__':
     '''
 
     from utils import plot_waveforms, save_waveforms
+    from tests import shape_test, waveforms_test, iteration_test
 
-    UNIT_TESTS_DIR = os.path.join('unit_tests', 'UrbanSound8K')
+    UNIT_TESTS_DIR = os.path.join('unit_tests', 'UrbanSound8K_16kHz')
     if not os.path.isdir(UNIT_TESTS_DIR):
         os.makedirs(UNIT_TESTS_DIR)
 
@@ -183,3 +186,5 @@ if __name__ == '__main__':
         test_first_batch.shape[0])], args.target_sr, os.path.join(UNIT_TESTS_DIR, 'test_batch'))
     assert list(test_first_batch.shape) == [
         args.batch_size, 1, args.target_sr*args.length_seconds], "Wrong output shape in batch (test)"
+
+    iteration_test(train_loader)
