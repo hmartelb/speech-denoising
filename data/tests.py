@@ -48,6 +48,13 @@ def waveforms_test(dataset, sr, process_output=False, plot_filename=None, audios
                 output_data.shape[0])], sr, f'{audios_dir}_output')
 
 
-# def iteration_test(dataset):
-#     if isinstance(dataset, torch.utils.data.DataLoader):
-#         for batch in dataset:
+def iteration_test(dataset):
+    print("Iteration test started")
+    if isinstance(dataset, torch.utils.data.DataLoader):
+        i = 0
+        try:
+            for batch in tqdm(dataset, total=len(dataset)):
+                i += 1
+        except:
+            pass
+        assert len(dataset) == i, f"Expected {len(dataset)} iterations, but dataset stopped at {i} iterations."

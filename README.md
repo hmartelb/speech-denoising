@@ -9,6 +9,7 @@ Audio Denoising project for the Deep Learning course at Tsinghua University, Spr
     __init__.py
     LibriSpeech.py
     NoiseMixer.py
+    resample_dataset.py
     tests.py
     UrbanSound8K.py
     utils.py
@@ -48,6 +49,13 @@ We use datasets of clean speech data and noise, which are combined to produce th
 * Homepage: [https://urbansounddataset.weebly.com/urbansound8k.html](https://urbansounddataset.weebly.com/urbansound8k.html)
 * Dataset download: [https://zenodo.org/record/401395#.YJwKzuhKiUk](https://zenodo.org/record/401395#.YJwKzuhKiUk)
 * Example of data loader (Kaggle): [https://www.kaggle.com/ronyroy/torchaudio-urban-sounds-8k](https://www.kaggle.com/ronyroy/torchaudio-urban-sounds-8k) 
+
+> Note: After downloading the UrbanSound8K it is recommended to preprocess it using the ``resample_dataset.py`` script. This script generates a precomputed version of the dataset with the target sampling rate (default: 16kHz) and downmixed to mono, to speed up the data loading. Use example:
+```
+(venv) python resample_dataset.py --dataset_path <path-to-UrbanSound8K>
+                                  --resampled_path <path-to-UrbanSound8K_16kHz>
+                                  --target_sr 16000
+```
 
 In addition, the following audio augmentation packages are used: 
 * 
