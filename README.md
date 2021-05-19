@@ -7,12 +7,16 @@ Audio Denoising project for the Deep Learning course at Tsinghua University, Spr
 ```
 /data: "Functions to load the datasets and generate data augmentations."
     __init__.py
-    LibriSpeech.py
+    AudioDirectory.py
     NoiseMixer.py
     resample_dataset.py
+    slice_dataset.py
     tests.py
-    UrbanSound8K.py
     utils.py
+    
+    [Deprecated] LibriSpeech.py 
+    [Deprecated] UrbanSound8K.py 
+    
 
 /evaluation: "Common metrics to evaluate the results"
     __init__.py
