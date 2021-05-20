@@ -21,6 +21,7 @@ requests==2.25.1
 six==1.16.0
 torch==1.8.1
 torchaudio==0.8.1
+torchsummary==1.5.1
 torchvision==0.9.1
 tqdm==4.60.0
 typing-extensions==3.10.0.0

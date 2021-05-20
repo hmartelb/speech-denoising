@@ -10,7 +10,7 @@ from .utils import get_magnitude, zero_pad
 
 
 class NoiseMixerDataset(Dataset):
-    def __init__(self, clean_dataset, noise_dataset, min_snr=0, max_snr=30, mode='time', spectrogram_size=256):
+    def __init__(self, clean_dataset, noise_dataset, min_snr=0, max_snr=30, mode='time', spectrogram_size=256, eps=1e-6):
         '''
         Mix 2 datasets containing clean audios and background noise. 
         The iteration is defined as the largest dataset, in modulo length of each.
@@ -28,6 +28,7 @@ class NoiseMixerDataset(Dataset):
 
         self.min_snr = min_snr
         self.max_snr = max_snr
+        self.eps = eps
 
         assert mode in ['time', 'amplitude', 'power',
                         'db'], "Invalid mode, it must be one of: ['time', 'amplitude', 'power', 'db']"
@@ -39,12 +40,13 @@ class NoiseMixerDataset(Dataset):
         clean, _ = self.clean_dataset[index % len(self.clean_dataset)]
         noise, _ = self.noise_dataset[index % len(self.noise_dataset)]
 
-        clean /= clean.max()
-        noise /= noise.max()
+        clean /= clean.abs().max()
+        noise /= noise.abs().max()
 
         # NOTE: We need to use the PyTorch random number generator (and not Numpy!) to select the random value of SNR.
         # https://tanelp.github.io/posts/a-bug-that-plagues-thousands-of-open-source-ml-projects/
-        snr_db = (self.max_snr-self.min_snr)*torch.rand(1) + self.min_snr
+        snr_db = (self.max_snr-self.min_snr)*torch.rand(1) + self.min_snr 
+        snr_db += self.eps
 
         # Formula to add the background noise from SNR.
         # https://pytorch.org/tutorials/beginner/audio_preprocessing_tutorial.html#adding-background-noise
