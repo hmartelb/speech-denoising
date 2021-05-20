@@ -5,15 +5,8 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
-from utils import print_metadata
+from utils import print_metadata, find_files
 
-
-def find_files(directory, extensions=('.mp3', '.wav', '.flac')):
-    for root, dirs, files in os.walk(directory):
-        for f in files:
-            filename = os.path.join(root, f)
-            if filename.endswith(extensions):
-                yield filename
 
 def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
     try:
@@ -23,7 +16,8 @@ def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
         audio, sr = torchaudio.load(input_filename)
 
         segment_length = sr * length_seconds
-        n_segments = (audio.shape[1] // segment_length) + (1 if pad_last else 0)
+        n_segments = (audio.shape[1] // segment_length) + \
+            (1 if pad_last else 0)
 
         # Zero pad the last segment if needed
         pad = (n_segments * segment_length) - len(audio)
@@ -32,8 +26,9 @@ def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
 
         # Save each segment as {output_dir}/{original_name}_XXXX.{ext}
         for i in range(n_segments):
-            audio_segment = audio[:,i*segment_length:(i+1)*segment_length]
-            segment_name = os.path.join(output_dir, f"{name}_{str(i).zfill(4)}{ext}")
+            audio_segment = audio[:, i*segment_length:(i+1)*segment_length]
+            segment_name = os.path.join(
+                output_dir, f"{name}_{str(i).zfill(4)}{ext}")
             torchaudio.save(segment_name, audio_segment, sr)
 
     except Exception as e:
@@ -63,4 +58,5 @@ if __name__ == '__main__':
             os.makedirs(dir_out)
 
         # Process the audio file
-        process_file(f_in, dir_out, length_seconds=args.length_seconds, pad_last=args.pad_last)
+        process_file(
+            f_in, dir_out, length_seconds=args.length_seconds, pad_last=args.pad_last)

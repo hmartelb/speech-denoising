@@ -62,6 +62,8 @@ class UrbanSound8KDataset(Dataset):
             with tarfile.open(filename, "r:gz") as tar:
                 tar.extractall()
 
+            self.file_path = os.path.join(self.file_path, 'UrbanSound8K')
+
     @property
     def segment_length(self):
         return self.target_sr * self.length_seconds
