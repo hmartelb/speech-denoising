@@ -79,14 +79,14 @@ class UNet(nn.Module):
         return x
 
 
-# from torchsummary import summary
-# import os
+from torchsummary import summary
+import os
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-# model = UNet()
-# summary(model, (1, 256, 256))
-# x = torch.ones([20, 1, 256, 256])
-# y = model.forward(x)
+model = UNet(1, 2, 6, 32)
+summary(model, (1, 256, 256))
+x = torch.ones([50, 1, 256, 256])
+y = model.forward(x)
 
-# print(y.shape)
+print(y.shape)
