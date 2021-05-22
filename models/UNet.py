@@ -72,10 +72,11 @@ class UNet(nn.Module):
             if i != last_item:
                 x = self.upsample(x)
                 x = self.conv_up[i](x)
-                x += storage[i]
+                x = x + storage[i]  # Avoid RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation
             else:
                 x = self.conv_up[i](x)
 
+        # x = nn.ReLU()(x)
         return x
 
 

@@ -5,15 +5,8 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
-from utils import print_metadata
+from utils import print_metadata, find_files
 
-
-def find_files(directory, extensions=('.mp3', '.wav', '.flac')):
-    for root, dirs, files in os.walk(directory):
-        for f in files:
-            filename = os.path.join(root, f)
-            if filename.endswith(extensions):
-                yield filename
 
 def process_file(input_filename, output_filename, target_sr):
     try:
@@ -27,7 +20,8 @@ def process_file(input_filename, output_filename, target_sr):
         audio /= audio.max()
 
         # Resample from original_sr to target_sr
-        audio = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=target_sr)(audio)
+        audio = torchaudio.transforms.Resample(
+            orig_freq=original_sr, new_freq=target_sr)(audio)
         torchaudio.save(output_filename, audio, target_sr)
 
     except Exception as e:

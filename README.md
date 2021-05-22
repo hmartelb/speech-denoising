@@ -20,9 +20,12 @@ Audio Denoising project for the Deep Learning course at Tsinghua University, Spr
 
 /evaluation: "Common metrics to evaluate the results"
     __init__.py
+    SDR.py
+    SNR.py
 
 /models: "Model architectures. Each model is in one Python file."
     __init__.py
+    UNet.py
 ```
 
 ## Quick start
