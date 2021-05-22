@@ -20,7 +20,7 @@ class SDR():
         num_sources = self.reference_array.shape[-1]
         num_channels = self.reference_array.shape[1]
         orderings = ( [list(range(num_sources))] )
-        results = np.empty((len(orderings), num_channels, num_sources, 3))
+        results = np.empty((len(orderings), num_channels, num_sources, 1))
 
         for o, order in enumerate(orderings):
             for c in range(num_channels):
@@ -28,7 +28,7 @@ class SDR():
                     SDR = self._compute_sdr(
                         self.estimated_array[:, c, j], self.reference_array[:, c, order], j, scaling=self.scaling
                     )
-                    results[o, c, j, :] = [SDR]
+                    results[o, c, j, :] = SDR
         return results
 
     @staticmethod

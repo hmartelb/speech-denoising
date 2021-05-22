@@ -36,7 +36,7 @@ class Trainer():
         self.loss_fn = loss_fn
         self.gradient_clipping = gradient_clipping
 
-        self.history = {'train_loss': [], 'val_loss': []}
+        self.history = {'train_loss': [], 'test_loss': []}
 
         for epoch in range(1, epochs+1):
             print(f"\nEpoch {epoch}/{epochs}:")
@@ -44,7 +44,7 @@ class Trainer():
             test_loss = self.test(model)
 
             self.history['train_loss'].append(train_loss)
-            self.history['val_loss'].append(val_loss)
+            self.history['test_loss'].append(test_loss)
         return self.history
 
     def train(self, model):
@@ -84,7 +84,7 @@ class Trainer():
         model.eval()
         with torch.no_grad():
             with tqdm(self.val_loader) as progress:
-                for i, (data, label) in enumerate(progress):
+                for i, (input_data, output_data) in enumerate(progress):
                     input_data = input_data.to(self.device)
                     output_data = output_data.to(self.device)
 
