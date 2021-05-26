@@ -190,7 +190,6 @@ if __name__ == '__main__':
         mode='db'
     )
 
-    # FIXME: This is the training data repeated, change to validation dirs
     val_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
