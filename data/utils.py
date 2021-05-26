@@ -80,7 +80,7 @@ def print_metadata(audio_file):
     print()
 
 
-def get_magnitude(audio, spectrogram_size=256, mode='amplitude', pad=False, normalize=True):
+def get_magnitude(audio, spectrogram_size=256, mode='amplitude', pad=False, normalize=True, return_phase=False):
     '''
     Compute the magnitude from an audio segment.
 
@@ -91,19 +91,20 @@ def get_magnitude(audio, spectrogram_size=256, mode='amplitude', pad=False, norm
         mode (str, default: amplitude):     Option to return the magnitude in linear, power of 2, or logarithmic scale (dB).
         pad (bool, default: False):         Pad the time dimension to match the spectrogram_size.
         normalize (bool, default: True):    Apply normalization to the magnitude spectrogram. Divide by 2/spectrogram_size
+        return_phase (bool, default: False):Return the phase together with the magnitude
     Returns:
         mag (torch.Tensor):                 Magnitude of the audio spectrogram.
     '''
     n_fft = 2 * spectrogram_size - 1
-    S = torchaudio.transforms.Spectrogram(n_fft=n_fft, power=(2 if mode == 'power' else None))(audio)
+    S = torchaudio.transforms.Spectrogram(n_fft=n_fft, normalized=normalize, power=(2 if mode == 'power' else None))(audio)
 
     if mode in ['amplitude', 'db']:
-        mag, _ = torchaudio.functional.magphase(S)
+        mag, phase = torchaudio.functional.magphase(S)
     else:
         mag = S # Power spectrogram is directly real-valued
 
-    if normalize:
-        mag /= 2*spectrogram_size
+    # if normalize:
+    #     mag /= 2*spectrogram_size
 
     if pad:
         mag = zero_pad(mag, spectrogram_size, 2)
@@ -111,8 +112,25 @@ def get_magnitude(audio, spectrogram_size=256, mode='amplitude', pad=False, norm
     if mode == 'db':
         mag = torchaudio.transforms.AmplitudeToDB(stype='magnitude')(mag)
     
+    if return_phase:
+        return mag, phase
+
     return mag
 
+def get_audio_from_magnitude(mag, phase, spectrogram_size=256, mode='amplitude', normalize=True):
+    if mode == 'db':
+        mag = torchaudio.functional.DB_to_amplitude(mag) # TODO: check normalization and parameters
+
+    # Undo the padding
+    if mag.shape[1] >= phase.shape[1] and mag.shape[2] >= phase.shape[2]:
+        mag = mag[:, 0:phase.shape[1], 0:phase.shape[2]]
+    
+    # S = torch.polar(mag, phase)
+    S = mag * torch.exp(1j*phase)
+
+    n_fft = 2 * spectrogram_size - 1
+    audio = torch.istft(S, n_fft, window=torch.hann_window(n_fft), hop_length=(n_fft//2 +1), center=True, normalized=normalize, onesided=True, length=None, return_complex=False)
+    return audio
 
 def zero_pad(tensor, target_len, dim):
     '''

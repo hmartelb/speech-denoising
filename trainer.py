@@ -12,39 +12,65 @@ from tqdm import tqdm
 
 
 class Trainer():
-    def __init__(self, train_data, val_data, display_freq=10):
+    def __init__(self, train_data, val_data, checkpoint_name, display_freq=10):
         self.train_data = train_data
         self.val_data = val_data
-
+        assert checkpoint_name.endswith('.tar'), "The checkpoint file must have .tar extension"
+        self.checkpoint_name = checkpoint_name
         self.display_freq = display_freq
 
     def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, gradient_clipping=True):
         # Get the device placement and make data loaders
         self.device = device
-        # model = model.to(self.device)
+        kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
+        self.train_loader = torch.utils.data.DataLoader(self.train_data, batch_size=batch_size, **kwargs)
+        self.val_loader = torch.utils.data.DataLoader(self.val_data, batch_size=batch_size, **kwargs)
 
-        kwargs = {'num_workers': 1,
-                  'pin_memory': True} if device == 'cuda' else {}
-        self.train_loader = torch.utils.data.DataLoader(
-            self.train_data, batch_size=batch_size, **kwargs)
-        self.val_loader = torch.utils.data.DataLoader(
-            self.val_data, batch_size=batch_size, **kwargs)
-
-        # Training classes
-        self.optimizer = optimizer(
-            model.parameters(), lr=lr, weight_decay=weight_decay)
+        self.optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
         self.loss_fn = loss_fn
         self.gradient_clipping = gradient_clipping
-
         self.history = {'train_loss': [], 'test_loss': []}
+        
+        previous_epochs = 0
+        min_loss = None
 
-        for epoch in range(1, epochs+1):
+        # Try loading checkpoint (if it exists)
+        if os.path.isfile(self.checkpoint_name):
+            print(f"Resuming training from checkpoint: {self.checkpoint_name}")
+            checkpoint = torch.load(self.checkpoint_name)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.loss_fn = checkpoint['loss_fn']
+            self.history = checkpoint['history']
+            previous_epochs = checkpoint['epoch']
+            min_loss = checkpoint['min_loss']
+        else:
+            print(f"No checkpoint found, using default parameters...")
+        
+        for epoch in range(previous_epochs+1, epochs+1):
             print(f"\nEpoch {epoch}/{epochs}:")
             train_loss = self.train(model)
             test_loss = self.test(model)
 
             self.history['train_loss'].append(train_loss)
             self.history['test_loss'].append(test_loss)
+
+            # Save checkpoint only if the validation loss improves (avoid overfitting)
+            if min_loss is None or test_loss < min_loss:
+                print(f"Validation loss improved from {min_loss} to {test_loss}.")
+                print(f"Saving checkpoint to: {self.checkpoint_name}")
+                min_loss = test_loss
+
+                checkpoint_data = {
+                    'epoch': epoch,
+                    'min_loss': min_loss,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'loss_fn': self.loss_fn,
+                    'history': self.history
+                }
+                torch.save(checkpoint_data, self.checkpoint_name)
+
         return self.history
 
     def train(self, model):
@@ -64,8 +90,7 @@ class Trainer():
 
                 # Gradient Value Clipping
                 if self.gradient_clipping:
-                    torch.nn.utils.clip_grad_value_(
-                        model.parameters(), clip_value=1.0)
+                    torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=1.0)
 
                 self.optimizer.step()
 
@@ -107,10 +132,14 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
 
     # Datasets
-    ap.add_argument('--clean_dataset_path', required=True)
-    ap.add_argument('--noise_dataset_path', required=True)
-    ap.add_argument('--target_sr', default=16000, type=int)
-    ap.add_argument('--length_seconds', default=4, type=int)
+    ap.add_argument('--clean_train_path', required=True)
+    ap.add_argument('--clean_val_path', required=True)
+    ap.add_argument('--noise_train_path', required=True)
+    ap.add_argument('--noise_val_path', required=True)
+    ap.add_argument('--keep_rate', default=1.0, type=float)
+
+    # Model checkpoint
+    ap.add_argument('--checkpoint_name', required=True, help='File with .tar extension')
 
     # Training params
     ap.add_argument('--epochs', default=10, type=int)
@@ -143,35 +172,32 @@ if __name__ == '__main__':
     #     msk_num_layers=8,               # 8
     #     msk_num_stacks=3                # 3
     # )
-    
+
     from models import UNet
     from torchsummary import summary
 
     model = UNet(1, 2, unet_scale_factor=16)
-    
-    model = torch.nn.DataParallel(
-        model, device_ids=list(range(len(visible_devices))))
+
+    model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
     model = model.to(device)
 
-    summary(model, input_size=(1,256,256))
-
+    # summary(model, input_size=(1, 256, 256))
 
     from data import AudioDirectoryDataset, NoiseMixerDataset
 
     train_data = NoiseMixerDataset(
-        clean_dataset=AudioDirectoryDataset(root=args.clean_dataset_path),
-        noise_dataset=AudioDirectoryDataset(root=args.noise_dataset_path),
-        mode='db'
+        clean_dataset=AudioDirectoryDataset(root=args.clean_train_path, keep_rate=args.keep_rate),
+        noise_dataset=AudioDirectoryDataset(root=args.noise_train_path, keep_rate=args.keep_rate),
+        mode='amplitude'
     )
 
-    # FIXME: This is the training data repeated, change to validation dirs
     val_data = NoiseMixerDataset(
-        clean_dataset=AudioDirectoryDataset(root=args.clean_dataset_path),
-        noise_dataset=AudioDirectoryDataset(root=args.noise_dataset_path),
-        mode='db'
+        clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
+        noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
+        mode='amplitude'
     )
 
-    trainer = Trainer(train_data, val_data)
+    trainer = Trainer(train_data, val_data, checkpoint_name=args.checkpoint_name)
     history = trainer.fit(
         model,
         device,

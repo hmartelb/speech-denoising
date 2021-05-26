@@ -130,3 +130,6 @@ dmypy.json
 
 # Project tests
 data/unit_tests
+
+# Model checkpoints
+checkpoints/*.tar

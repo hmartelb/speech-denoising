@@ -26,6 +26,9 @@ Audio Denoising project for the Deep Learning course at Tsinghua University, Spr
 /models: "Model architectures. Each model is in one Python file."
     __init__.py
     UNet.py
+    
+predict.py
+trainer.py
 ```
 
 ## Quick start
