@@ -15,6 +15,7 @@ class Trainer():
     def __init__(self, train_data, val_data, checkpoint_name, display_freq=10):
         self.train_data = train_data
         self.val_data = val_data
+        assert checkpoint_name.endswith('.tar'), "The checkpoint file must have .tar extension"
         self.checkpoint_name = checkpoint_name
         self.display_freq = display_freq
 
@@ -187,13 +188,13 @@ if __name__ == '__main__':
     train_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_train_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_train_path, keep_rate=args.keep_rate),
-        mode='db'
+        mode='amplitude'
     )
 
     val_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
-        mode='db'
+        mode='amplitude'
     )
 
     trainer = Trainer(train_data, val_data, checkpoint_name=args.checkpoint_name)
