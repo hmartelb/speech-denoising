@@ -17,7 +17,7 @@ class UNet(nn.Module):
         n_channels=1,
         n_class=2,
         unet_depth=5,
-        unet_scale_factor=64,
+        unet_scale_factor=32,
         double_conv_kernel_size=3,
         double_conv_padding=1,
         maxpool_kernel_size=2,
@@ -57,6 +57,7 @@ class UNet(nn.Module):
         )
 
     def forward(self, x):
+        old = x
         storage = []
         last_item = self.depth - 1
 
@@ -72,15 +73,21 @@ class UNet(nn.Module):
             if i != last_item:
                 x = self.upsample(x)
                 x = self.conv_up[i](x)
-                x = x + storage[i]  # Avoid RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation
+                x = (
+                    x + storage[i]
+                )  # Avoid RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation
             else:
                 x = self.conv_up[i](x)
 
         # x = nn.ReLU()(x)
+        x = nn.Softmax(dim=1)(x)
+
+        x = x * torch.cat([old, old], dim=1)
+
         return x
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from torchsummary import summary
     import os
 
