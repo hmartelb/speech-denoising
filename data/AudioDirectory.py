@@ -1,16 +1,20 @@
 import argparse
 import os
 
+import numpy as np
 import torch
 import torchaudio
 from torch.utils.data import Dataset
+
 
 class AudioDirectoryDataset(Dataset):
     '''
     Load all the audios recursively from a root directory (i.e. Dataset [train/test] split folder).
     '''
-    def __init__(self, root, extensions=('.mp3', '.wav', '.flac')):
+    def __init__(self, root, extensions=('.mp3', '.wav', '.flac'), keep_rate=1.0):
         self.filenames = list(self._find_files(root, extensions))
+        if keep_rate > 0 and keep_rate < 1.0:
+            self.filenames = np.random.choice(self.filenames, int(len(self.filenames)*keep_rate))
     
     def _find_files(self, root, extensions=('.mp3', '.wav', '.flac')):
         for base, dirs, files in os.walk(root):
