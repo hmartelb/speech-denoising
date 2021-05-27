@@ -7,12 +7,13 @@ from data.utils import get_magnitude, get_audio_from_magnitude
 import matplotlib.pyplot as plt
 
 def predict_spectrogram(audio, sr, length_seconds, model):
+    total_samples = audio.shape[1]
     segment_length = sr*length_seconds
     n_segments = int(np.ceil(audio.shape[1] / segment_length))
 
     output_segments = {'clean': [], 'noise': []}
     for i in range(n_segments):
-
+        # print(f"Processing segment {i+1}/{n_segments}")
         if audio.shape[1] >= (i+1)*segment_length:
             seg_audio = audio[:, i*segment_length:(i+1)*segment_length]
         else:
@@ -50,7 +51,7 @@ def predict_spectrogram(audio, sr, length_seconds, model):
     clean_output = torch.cat(output_segments['clean'], dim=1)
     noise_output = torch.cat(output_segments['noise'], dim=1)
 
-    return clean_output, noise_output
+    return clean_output[:,0:total_samples], noise_output[:,0:total_samples]
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -95,9 +96,12 @@ if __name__ == '__main__':
         extensions), f"Input file cannot be loaded. Either it does not exist or has a wrong extension. Allowed extensions {extensions}"
 
     audio, sr = torchaudio.load(args.input)
+    if sr != 16000:
+        audio = torchaudio.transforms.Resample(sr, 16000)(audio)
+        sr = 16000
+
     audio /= audio.abs().max()
     
-    print(audio.shape)
     clean_output, noise_output = predict_spectrogram(audio, sr, args.length_seconds, model)
 
     plt.subplot(3,1,1)
