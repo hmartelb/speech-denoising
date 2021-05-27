@@ -88,19 +88,6 @@ if __name__ == '__main__':
     from LibriSpeech import LibriSpeechDataset
     from UrbanSound8K import UrbanSound8KDataset
 
-    # train_clean_dataset = LibriSpeechDataset(
-    #     args.clean_dataset_path,
-    #     split="train-clean-100",
-    #     target_sr=args.target_sr,
-    #     length_seconds=args.length_seconds
-    # )
-    # train_noise_dataset = UrbanSound8KDataset(
-    #     args.noise_dataset_path,
-    #     folders=range(1, 10),
-    #     target_sr=args.target_sr,
-    #     length_seconds=args.length_seconds
-    # )
-
     train_clean_dataset = AudioDirectoryDataset(root=args.clean_dataset_path)
     train_noise_dataset = AudioDirectoryDataset(root=args.noise_dataset_path)
 
