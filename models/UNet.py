@@ -22,6 +22,7 @@ class UNet(nn.Module):
         double_conv_padding=1,
         maxpool_kernel_size=2,
         upsample_scale_factor=2,
+        apply_masks=True
     ):
         super().__init__()
 
@@ -56,6 +57,8 @@ class UNet(nn.Module):
             + [nn.Conv2d(unet_scale_factor, n_class, 1)]
         )
 
+        self.apply_masks = apply_masks
+
     def forward(self, x):
         old = x
         storage = []
@@ -79,10 +82,9 @@ class UNet(nn.Module):
             else:
                 x = self.conv_up[i](x)
 
-        # x = nn.ReLU()(x)
-        x = nn.Softmax(dim=1)(x)
-
-        x = x * torch.cat([old, old], dim=1)
+        if self.apply_masks:
+            x = nn.Softmax(dim=1)(x)
+            x = x * torch.cat([old, old], dim=1)
 
         return x
 
