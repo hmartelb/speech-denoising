@@ -58,10 +58,11 @@ class UNetDNP(nn.Module):
         return x
 
 
-from torchsummary import summary
-import os
+if __name__ == "__main__":
+    from torchsummary import summary
+    import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-net = UNetDNP()
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    net = UNetDNP()
 
-summary(net, [1, 66496])
+    summary(net, [1, 66496])
