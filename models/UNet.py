@@ -26,6 +26,7 @@ class UNet(nn.Module):
         super().__init__()
 
         self.depth = unet_depth
+        self.n_class = n_class
 
         self.conv_down = nn.ModuleList(
             [double_conv(n_channels, unet_scale_factor, double_conv_kernel_size, double_conv_padding)]
@@ -82,7 +83,7 @@ class UNet(nn.Module):
         # x = nn.ReLU()(x)
         x = nn.Softmax(dim=1)(x)
 
-        x = x * torch.cat([old, old], dim=1)
+        x = x * torch.cat([old] * self.n_class, dim=1)
 
         return x
 
@@ -93,9 +94,9 @@ if __name__ == "__main__":
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-    model = UNet(1, 2, 6, 32)
+    model = UNet(1, 4, 6, 32)
     summary(model, (1, 256, 256))
-    x = torch.ones([50, 1, 256, 256])
+    x = torch.ones([10, 1, 256, 256])
     y = model.forward(x)
 
     print(y.shape)
