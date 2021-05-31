@@ -173,12 +173,13 @@ if __name__ == '__main__':
     #     msk_num_stacks=3                # 3
     # )
 
-    from models import UNet
+    from models import UNet, UNetDNP
     from torchsummary import summary
 
-    model = UNet(1, 2, unet_scale_factor=16)
+    # model = UNet(1, 2, unet_scale_factor=16)
 
-    model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
+    # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
+    model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
     model = model.to(device)
 
     # summary(model, input_size=(1, 256, 256))
@@ -188,13 +189,13 @@ if __name__ == '__main__':
     train_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_train_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_train_path, keep_rate=args.keep_rate),
-        mode='amplitude'
+        mode='time'#'amplitude'
     )
 
     val_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
-        mode='amplitude'
+        mode='time'#'amplitude'
     )
 
     trainer = Trainer(train_data, val_data, checkpoint_name=args.checkpoint_name)

@@ -6,6 +6,7 @@ import numpy as np
 from data.utils import get_magnitude, get_audio_from_magnitude
 import matplotlib.pyplot as plt
 
+
 def predict_spectrogram(audio, sr, length_seconds, model):
     total_samples = audio.shape[1]
     segment_length = sr*length_seconds
@@ -53,6 +54,40 @@ def predict_spectrogram(audio, sr, length_seconds, model):
 
     return clean_output[:,0:total_samples], noise_output[:,0:total_samples]
 
+
+def predict_waveform(audio, sr, length_seconds, model):
+    total_samples = audio.shape[1]
+    segment_length = sr*length_seconds
+    n_segments = int(np.ceil(audio.shape[1] / segment_length))
+
+    output_segments = {'clean': [], 'noise': []}
+    for i in range(n_segments):
+        print(f"Processing segment {i+1}/{n_segments}")
+        if audio.shape[1] >= (i+1)*segment_length:
+            seg_audio = audio[:, i*segment_length:(i+1)*segment_length]
+        else:
+            seg_audio = torch.zeros([1,segment_length])
+            seg_audio[:, 0:audio.shape[1]-i*segment_length] = audio[:, i*segment_length:]
+
+        seg_audio = seg_audio.unsqueeze(0)
+        out_sources = model(seg_audio)            # Use the model
+        out_sources = out_sources.squeeze()
+        out_sources = out_sources.cpu().detach()
+
+        clean_audio = out_sources[0:1,:]
+        noise_audio = out_sources[1:2,:]
+
+        # Append the obtained segments for each source into a list
+        output_segments['clean'].append(clean_audio)
+        output_segments['noise'].append(noise_audio)
+
+    # Concatenate along time dimension to obtain the full audio
+    clean_output = torch.cat(output_segments['clean'], dim=1)
+    noise_output = torch.cat(output_segments['noise'], dim=1)
+
+    return clean_output[:,0:total_samples], noise_output[:,0:total_samples]
+
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     # Input and Output
@@ -80,9 +115,11 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-    from models import UNet
-    model = UNet(1, 2, unet_scale_factor=16)
-    model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
+    from models import UNet, UNetDNP
+    
+    model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
+    # model = UNet(1, 2, unet_scale_factor=16)
+    # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
   
     assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith('.tar'), "The specified checkpoint_name is not a valid checkpoint"
     checkpoint = torch.load(args.checkpoint_name)
@@ -102,7 +139,11 @@ if __name__ == '__main__':
 
     audio /= audio.abs().max()
     
-    clean_output, noise_output = predict_spectrogram(audio, sr, args.length_seconds, model)
+    if args.mode in ['time']:
+        clean_output, noise_output = predict_waveform(audio.to(device), sr, args.length_seconds, model)
+
+    if args.mode in ['amplitude', 'power', 'db']:
+        clean_output, noise_output = predict_spectrogram(audio, sr, args.length_seconds, model)
 
     plt.subplot(3,1,1)
     plt.plot(audio[0,])

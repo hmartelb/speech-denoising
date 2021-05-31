@@ -21,19 +21,23 @@ def convnorm(in_ch, out_ch, filter_size):
 
 
 class UNetDNP(nn.Module):
-    def __init__(self, n_channels=1, n_class=2, unet_depth=6, nefilters=60):
+    def __init__(self, n_channels=1, n_class=2, unet_depth=6, n_filters=60, apply_masks=False):
         super(UNetDNP, self).__init__()
+        
         self.unet_depth = unet_depth
-        self.nefilters = nefilters
+        self.n_filters = n_filters
         self.n_class = n_class
+        
         filter_size = 15
         merge_filter_size = 5
+
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
-        echannelout = [(i + 1) * nefilters for i in range(unet_depth)]
-        echannelin = [n_channels] + [(i + 1) * nefilters for i in range(unet_depth - 1)]
+        
+        echannelout = [(i + 1) * n_filters for i in range(unet_depth)]
+        echannelin = [n_channels] + [(i + 1) * n_filters for i in range(unet_depth - 1)]
         dchannelout = echannelout[::-1]
-        dchannelin = [dchannelout[0] * 2] + [(i) * nefilters + (i - 1) * nefilters for i in range(unet_depth, 1, -1)]
+        dchannelin = [dchannelout[0] * 2] + [(i) * n_filters + (i - 1) * n_filters for i in range(unet_depth, 1, -1)]
 
         for i in range(self.unet_depth):
             self.encoder.append(convnorm(echannelin[i], echannelout[i], filter_size))
@@ -41,9 +45,11 @@ class UNetDNP(nn.Module):
 
         self.middle = convnorm(echannelout[-1], echannelout[-1], filter_size)
 
-        self.out = nn.Sequential(nn.Conv1d(nefilters + 1, n_class, 1), nn.Tanh())
+        self.out = nn.Sequential(nn.Conv1d(n_filters + 1, n_class, 1), nn.Tanh())
         self.upsample = nn.Upsample(scale_factor=2, mode="linear", align_corners=False)
         self.downsample = nn.MaxPool1d(2)
+
+        self.apply_masks = apply_masks
 
     def forward(self, x):
         encoder = list()
@@ -62,10 +68,12 @@ class UNetDNP(nn.Module):
             x = torch.cat([x, encoder[i]], dim=1)
             x = self.decoder[i](x)
         x = torch.cat([x, input], dim=1)
-
+        
         x = self.out(x)
-        x = nn.Softmax(dim=1)(x)
-        x = x * torch.cat([input] * self.n_class, dim=1)
+
+        if self.apply_masks:
+            x = nn.Softmax(dim=1)(x)
+            x = x * torch.cat([input] * self.n_class, dim=1)
 
         return x
 
