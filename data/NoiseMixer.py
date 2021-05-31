@@ -10,7 +10,7 @@ from .utils import get_magnitude, zero_pad
 
 
 class NoiseMixerDataset(Dataset):
-    def __init__(self, clean_dataset, noise_dataset, min_snr=0, max_snr=30, mode='time', spectrogram_size=256, eps=1e-6):
+    def __init__(self, clean_dataset, noise_dataset, min_snr=0, max_snr=18, mode='time', spectrogram_size=256, eps=1e-6):
         '''
         Mix 2 datasets containing clean audios and background noise. 
         The iteration is defined as the largest dataset, in modulo length of each.
@@ -26,6 +26,13 @@ class NoiseMixerDataset(Dataset):
         self.clean_dataset = clean_dataset
         self.noise_dataset = noise_dataset
 
+        '''
+        Signal above noise: [min_snr: 0dB, max_snr: 18dB]
+        Noise can be louder than signal: [min_snr: -12dB, max_snr: 18dB] (Significantly more challenging)
+
+        For the range of SNR, refer to the review paper: "Supervised Speech Separation Based on Deep Learning: An Overview" (Figure 1)
+        https://arxiv.org/ftp/arxiv/papers/1708/1708.07524.pdf
+        '''
         self.min_snr = min_snr
         self.max_snr = max_snr
         self.eps = eps
