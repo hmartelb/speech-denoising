@@ -62,7 +62,7 @@ def predict_waveform(audio, sr, length_seconds, model):
 
     output_segments = {'clean': [], 'noise': []}
     for i in range(n_segments):
-        print(f"Processing segment {i+1}/{n_segments}")
+        # print(f"Processing segment {i+1}/{n_segments}")
         if audio.shape[1] >= (i+1)*segment_length:
             seg_audio = audio[:, i*segment_length:(i+1)*segment_length]
         else:
@@ -144,6 +144,9 @@ if __name__ == '__main__':
 
     if args.mode in ['amplitude', 'power', 'db']:
         clean_output, noise_output = predict_spectrogram(audio, sr, args.length_seconds, model)
+
+    clean_output /= clean_output.abs().max()
+    noise_output /= noise_output.abs().max()
 
     plt.subplot(3,1,1)
     plt.plot(audio[0,])
