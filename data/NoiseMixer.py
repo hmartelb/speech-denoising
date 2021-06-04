@@ -62,8 +62,9 @@ class NoiseMixerDataset(Dataset):
 
         snr = math.exp(snr_db / 10)
         scale = snr * noise_power / clean_power
-        mixture = (scale * clean + noise) / 2
-        # mixture = audio + (noise / (10.0**(0.05*snr))) # TODO: Is this equivalent ?
+
+        clean = scale * clean ###  
+        mixture = (clean + noise) / 2
 
         if self.mode in ['amplitude', 'power', 'db']:
             # Compute the magnitude spectrogram
@@ -91,9 +92,9 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-    from AudioDirectory import AudioDirectoryDataset
-    from LibriSpeech import LibriSpeechDataset
-    from UrbanSound8K import UrbanSound8KDataset
+    from .AudioDirectory import AudioDirectoryDataset
+    # from LibriSpeech import LibriSpeechDataset
+    # from UrbanSound8K import UrbanSound8KDataset
 
     train_clean_dataset = AudioDirectoryDataset(root=args.clean_dataset_path)
     train_noise_dataset = AudioDirectoryDataset(root=args.noise_dataset_path)
