@@ -21,19 +21,28 @@ def convnorm(in_ch, out_ch, filter_size):
 
 
 class UNetDNP(nn.Module):
-    def __init__(self, n_channels=1, n_class=2, unet_depth=6, n_filters=60, apply_masks=False):
+    def __init__(
+        self,
+        n_channels=1,
+        n_class=2,
+        unet_depth=6,
+        n_filters=60,
+        apply_masks=False,
+    ):
         super(UNetDNP, self).__init__()
-        
+
+        self.n_channels = n_channels
+        self.n_class = n_class
         self.unet_depth = unet_depth
         self.n_filters = n_filters
-        self.n_class = n_class
-        
+        self.apply_masks = apply_masks
+
         filter_size = 15
         merge_filter_size = 5
 
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
-        
+
         echannelout = [(i + 1) * n_filters for i in range(unet_depth)]
         echannelin = [n_channels] + [(i + 1) * n_filters for i in range(unet_depth - 1)]
         dchannelout = echannelout[::-1]
@@ -48,8 +57,6 @@ class UNetDNP(nn.Module):
         self.out = nn.Sequential(nn.Conv1d(n_filters + 1, n_class, 1), nn.Tanh())
         self.upsample = nn.Upsample(scale_factor=2, mode="linear", align_corners=False)
         self.downsample = nn.MaxPool1d(2)
-
-        self.apply_masks = apply_masks
 
     def forward(self, x):
         encoder = list()
@@ -68,7 +75,7 @@ class UNetDNP(nn.Module):
             x = torch.cat([x, encoder[i]], dim=1)
             x = self.decoder[i](x)
         x = torch.cat([x, input], dim=1)
-        
+
         x = self.out(x)
 
         if self.apply_masks:
@@ -77,6 +84,15 @@ class UNetDNP(nn.Module):
 
         return x
 
+    def config(self):
+        return {
+            "n_channels": self.n_channels,
+            "n_class": self.n_class,
+            "unet_depth": self.unet_depth,
+            "n_filters": self.n_filters,
+            "apply_masks": self.apply_masks,
+        }
+
 
 if __name__ == "__main__":
     from torchsummary import summary
@@ -84,9 +100,20 @@ if __name__ == "__main__":
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-    model = UNetDNP()
-    summary(model, [1, 16000 * 4])
-    x = torch.ones([4, 1, 16000 * 4])
-    y = model.forward(x)
+    # model = UNetDNP(n_channels=1, n_class=2, unet_depth=4, n_filters=16)
+    config = {
+        "n_channels": 1,
+        "n_class": 2,
+        "unet_depth": 4,
+        "n_filters": 16,
+        "apply_masks": False,
+    }
+    model = UNetDNP(**config)
 
-    print(y.shape)
+    print(model.config())
+
+    summary(model, (1, 16000 * 4))
+    # x = torch.ones([4, 1, 16000 * 4])
+    # y = model.forward(x)
+
+    # print(y.shape)
