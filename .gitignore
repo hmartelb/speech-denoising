@@ -133,3 +133,4 @@ data/unit_tests
 
 # Model checkpoints
 checkpoints/*.tar
+.vscode/settings.json

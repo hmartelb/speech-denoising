@@ -159,3 +159,7 @@ def find_files(directory, extensions=('.mp3', '.wav', '.flac')):
             filename = os.path.join(root, f)
             if filename.endswith(extensions):
                 yield filename
+
+def make_path(directory):
+    if not os.path.isdir(directory):
+        os.makedirs(directory)

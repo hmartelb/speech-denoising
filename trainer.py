@@ -19,7 +19,7 @@ class Trainer():
         self.checkpoint_name = checkpoint_name
         self.display_freq = display_freq
 
-    def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, gradient_clipping=True):
+    def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, loss_mode='min', gradient_clipping=True):
         # Get the device placement and make data loaders
         self.device = device
         kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
@@ -28,11 +28,12 @@ class Trainer():
 
         self.optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
         self.loss_fn = loss_fn
+        self.loss_mode = loss_mode
         self.gradient_clipping = gradient_clipping
         self.history = {'train_loss': [], 'test_loss': []}
         
         previous_epochs = 0
-        min_loss = None
+        best_loss = None
 
         # Try loading checkpoint (if it exists)
         if os.path.isfile(self.checkpoint_name):
@@ -43,7 +44,7 @@ class Trainer():
             self.loss_fn = checkpoint['loss_fn']
             self.history = checkpoint['history']
             previous_epochs = checkpoint['epoch']
-            min_loss = checkpoint['min_loss']
+            best_loss = checkpoint['best_loss']
         else:
             print(f"No checkpoint found, using default parameters...")
         
@@ -56,14 +57,14 @@ class Trainer():
             self.history['test_loss'].append(test_loss)
 
             # Save checkpoint only if the validation loss improves (avoid overfitting)
-            if min_loss is None or test_loss < min_loss:
-                print(f"Validation loss improved from {min_loss} to {test_loss}.")
+            if best_loss is None or (test_loss < best_loss and self.loss_mode == 'min') or (test_loss > best_loss and self.loss_mode == 'max'):
+                print(f"Validation loss improved from {best_loss} to {test_loss}.")
                 print(f"Saving checkpoint to: {self.checkpoint_name}")
-                min_loss = test_loss
+                best_loss = test_loss
 
                 checkpoint_data = {
                     'epoch': epoch,
-                    'min_loss': min_loss,
+                    'best_loss': best_loss,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss_fn': self.loss_fn,
@@ -77,16 +78,19 @@ class Trainer():
         total_loss = 0.0
         model.train()
         with tqdm(self.train_loader) as progress:
-            for i, (input_data, output_data) in enumerate(progress):
-                input_data = input_data.to(self.device)
-                output_data = output_data.to(self.device)
+            for i, (mixture, sources) in enumerate(progress):
+                mixture = mixture.to(self.device)
+                sources = sources.to(self.device)
 
                 self.optimizer.zero_grad()
 
-                predictions = model(input_data)
-                loss = self.loss_fn(predictions, output_data)
+                predictions = model(mixture)
+                loss = self.loss_fn(predictions, sources)
 
-                loss.backward()
+                if self.loss_mode == 'max': # To optimize for maximization, multiply by -1
+                    loss = -1 * loss
+
+                loss.mean().backward()
 
                 # Gradient Value Clipping
                 if self.gradient_clipping:
@@ -94,7 +98,7 @@ class Trainer():
 
                 self.optimizer.step()
 
-                total_loss += loss.item()
+                total_loss += loss.mean().item()
 
                 if i % self.display_freq == 0:
                     progress.set_postfix({
@@ -109,15 +113,15 @@ class Trainer():
         model.eval()
         with torch.no_grad():
             with tqdm(self.val_loader) as progress:
-                for i, (input_data, output_data) in enumerate(progress):
-                    input_data = input_data.to(self.device)
-                    output_data = output_data.to(self.device)
+                for i, (mixture, sources) in enumerate(progress):
+                    mixture = mixture.to(self.device)
+                    sources = sources.to(self.device)
 
-                    predictions = model(input_data)
+                    predictions = model(mixture)
 
-                    loss = self.loss_fn(predictions, output_data)
+                    loss = self.loss_fn(predictions, sources)
 
-                    total_loss += loss.item()
+                    total_loss += loss.mean().item()
 
                     if i % self.display_freq == 0:
                         progress.set_postfix({
@@ -139,6 +143,7 @@ if __name__ == '__main__':
     ap.add_argument('--keep_rate', default=1.0, type=float)
 
     # Model checkpoint
+    ap.add_argument('--model', choices=['UNet', 'UNetDNP', 'ConvTasNet', 'TransUNet', 'SepFormer'])
     ap.add_argument('--checkpoint_name', required=True, help='File with .tar extension')
 
     # Training params
@@ -161,41 +166,79 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-    # from torchaudio.models import ConvTasNet
-    # model = ConvTasNet(
-    #     num_sources=2,                  # DO NOT CHANGE THIS!
-    #     enc_kernel_size=16,             # 16
-    #     enc_num_feats=128,              # 512
-    #     msk_kernel_size=3,              # 3
-    #     msk_num_feats=32,               # 128
-    #     msk_num_hidden_feats=128,       # 512
-    #     msk_num_layers=8,               # 8
-    #     msk_num_stacks=3                # 3
-    # )
 
-    from models import UNet, UNetDNP
-    from torchsummary import summary
+    from torchaudio.models import ConvTasNet
 
-    # model = UNet(1, 2, unet_scale_factor=16)
+    from losses import (LogSTFTMagnitudeLoss, MultiResolutionSTFTLoss,
+                        ScaleInvariantSDRLoss, SpectralConvergenceLoss)
+    from models import *
+
+    # from torchsummary import summary
+    # Select the model to be used for training
+    if args.model == 'UNet':
+        model = UNet(1, 2, unet_scale_factor=16)
+        data_mode = 'amplitude'
+        loss_fn = F.mse_loss
+        loss_mode = 'min'
+
+    if args.model == 'UNetDNP':
+        model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
+        data_mode = 'time'
+        loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
+        # loss_fn = MultiResolutionSTFTLoss()
+        # loss_mode = 'min'
+
+    if args.model == 'ConvTasNet':
+        model = ConvTasNet(
+            num_sources=2,                  
+            enc_kernel_size=16,             # 16
+            enc_num_feats=128,              # 512
+            msk_kernel_size=3,              # 3
+            msk_num_feats=32,               # 128
+            msk_num_hidden_feats=128,       # 512
+            msk_num_layers=8,               # 8
+            msk_num_stacks=3                # 3
+        )
+        data_mode = 'time'
+        loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
+
+    if args.model == 'TransUNet':
+        #
+        # TODO: Include model initialization
+        #
+        raise NotImplementedError
+
+        data_mode = 'amplitude'
+        loss_fn = F.mse_loss
+        loss_mode = 'min'
+
+    if args.model == 'SepFormer':
+        #
+        # TODO: Include model initialization
+        #
+        raise NotImplementedError
+
+        data_mode = 'time'
+        loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
 
     # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
-    model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
     model = model.to(device)
-
-    # summary(model, input_size=(1, 256, 256))
 
     from data import AudioDirectoryDataset, NoiseMixerDataset
 
     train_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_train_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_train_path, keep_rate=args.keep_rate),
-        mode='time'#'amplitude'
+        mode=data_mode
     )
 
     val_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
-        mode='time'#'amplitude'
+        mode=data_mode
     )
 
     trainer = Trainer(train_data, val_data, checkpoint_name=args.checkpoint_name)
@@ -205,6 +248,8 @@ if __name__ == '__main__':
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.lr,
-        loss_fn=F.mse_loss,
+        loss_fn=loss_fn,
+        loss_mode=loss_mode,
         gradient_clipping=args.gradient_clipping
     )
+    
