@@ -19,7 +19,7 @@ class Trainer():
         self.checkpoint_name = checkpoint_name
         self.display_freq = display_freq
 
-    def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, gradient_clipping=True):
+    def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, loss_mode='min', gradient_clipping=True):
         # Get the device placement and make data loaders
         self.device = device
         kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
@@ -32,7 +32,7 @@ class Trainer():
         self.history = {'train_loss': [], 'test_loss': []}
         
         previous_epochs = 0
-        min_loss = None
+        best_loss = None
 
         # Try loading checkpoint (if it exists)
         if os.path.isfile(self.checkpoint_name):
@@ -43,7 +43,7 @@ class Trainer():
             self.loss_fn = checkpoint['loss_fn']
             self.history = checkpoint['history']
             previous_epochs = checkpoint['epoch']
-            min_loss = checkpoint['min_loss']
+            best_loss = checkpoint['best_loss']
         else:
             print(f"No checkpoint found, using default parameters...")
         
@@ -56,14 +56,14 @@ class Trainer():
             self.history['test_loss'].append(test_loss)
 
             # Save checkpoint only if the validation loss improves (avoid overfitting)
-            if min_loss is None or test_loss < min_loss:
-                print(f"Validation loss improved from {min_loss} to {test_loss}.")
+            if best_loss is None or (test_loss < best_loss and loss_mode == 'min') or (test_loss > best_loss and loss_mode == 'max'):
+                print(f"Validation loss improved from {best_loss} to {test_loss}.")
                 print(f"Saving checkpoint to: {self.checkpoint_name}")
-                min_loss = test_loss
+                best_loss = test_loss
 
                 checkpoint_data = {
                     'epoch': epoch,
-                    'min_loss': min_loss,
+                    'best_loss': best_loss,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss_fn': self.loss_fn,
@@ -117,7 +117,7 @@ class Trainer():
 
                     loss = self.loss_fn(predictions, sources)
 
-                    total_loss += loss.item()
+                    total_loss += loss.mean().item()
 
                     if i % self.display_freq == 0:
                         progress.set_postfix({
@@ -175,11 +175,13 @@ if __name__ == '__main__':
         model = UNet(1, 2, unet_scale_factor=16)
         data_mode = 'amplitude'
         loss_fn = F.mse_loss
+        loss_mode = 'min'
 
     if args.model == 'UNetDNP':
         model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
         data_mode = 'time'
         loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
 
     if args.model == 'ConvTasNet':
         model = ConvTasNet(
@@ -194,6 +196,7 @@ if __name__ == '__main__':
         )
         data_mode = 'time'
         loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
 
     if args.model == 'TransUNet':
         #
@@ -203,6 +206,7 @@ if __name__ == '__main__':
 
         data_mode = 'amplitude'
         loss_fn = F.mse_loss
+        loss_mode = 'min'
 
     if args.model == 'SepFormer':
         #
@@ -212,6 +216,7 @@ if __name__ == '__main__':
 
         data_mode = 'time'
         loss_fn = ScaleInvariantSDRLoss
+        loss_mode = 'max'
 
     # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
     model = model.to(device)
@@ -238,6 +243,7 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         lr=args.lr,
         loss_fn=loss_fn,
+        loss_mode=loss_mode,
         gradient_clipping=args.gradient_clipping
     )
     
