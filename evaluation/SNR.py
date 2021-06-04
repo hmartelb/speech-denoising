@@ -9,13 +9,13 @@ class SNR():
     inputwavfilepath    <- input audio file
     outputwavfilepath   <- model output audio file
     '''
-    def __init__(self, inputwavfilepath, outputwavfilepath):
-        samplerate_in, data_in = wavfile.read(inputwavfilepath)
-        self.samplerate_in = samplerate_in
-        self.data_in = data_in
-        samplerate_out, data_out = wavfile.read(outputwavfilepath)
-        self.samplerate_out = samplerate_out
-        self.data_out = data_out
+    def __init__(self, cleanfilepath, noisefilepath):
+        clean = wavfile.read(cleanfilepath)[1]
+        self.clean = clean
+        print(clean, clean.shape)
+        noise = wavfile.read(noisefilepath)[1]
+        self.noise = noise
+        print(noise, noise.shape)
     
     '''
     Ref:
@@ -26,7 +26,9 @@ class SNR():
         return e
 
     def get_evaluation(self):
-        snr  = 10 * np.log10(self.energy(self.data_in)/self.energy(self.data_in - self.data_out))
+        snr = 10 * np.log10(self.energy(self.clean) /
+                            self.energy(self.noise))
+        return snr
 
     def signaltonoise(self, array, axis=0, ddof=0):
         array = np.asanyarray(array)
@@ -36,13 +38,21 @@ class SNR():
 
     
     def get_evaluation_single_audio(self):
-        snr = self.signaltonoise(self.audio_array, axis = 0, ddof = 0)
-        print("Sound to Noise Ratio: ", snr)
+        singleChannel = self.noise
+        try:
+            singleChannel = np.sum(self.noise, axis=1)
+        except:
+            # was mono after all
+            pass
 
+        norm = singleChannel / (max(np.amax(singleChannel), -1 * np.amin(singleChannel)))
+        snr = self.signaltonoise(norm, axis=0, ddof=0)
+        return snr
 
 if __name__ == '__main__':
-    inputpath = ''
-    outputpath = ''
-    snr = SNR(inputpath, outputpath)
-    print(snr.get_evaluation())
-    
+    path_unet_all_mask_noise = '../results/UNet_all_data_10_epochs_masking/output_noise.wav'
+    path_unet_all_mask_clean = '../results/UNet_all_data_10_epochs_masking/output_clean.wav'
+    path_unet_10_mask_noise = '../results/UNet_0.1_data_10_epochs_masking/output_noise.wav'
+    path_unet_10_nomask_clean = '../results/UNet_0.1_data_10_epochs_masking/output_clean.wav'
+    print('SNR unet_all_mask', SNR(path_unet_all_mask_clean, path_unet_all_mask_noise).get_evaluation())
+    print('SNR unet_10_mask', SNR(path_unet_10_nomask_clean, path_unet_10_mask_noise).get_evaluation())
