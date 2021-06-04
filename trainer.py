@@ -28,6 +28,7 @@ class Trainer():
 
         self.optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
         self.loss_fn = loss_fn
+        self.loss_mode = loss_mode
         self.gradient_clipping = gradient_clipping
         self.history = {'train_loss': [], 'test_loss': []}
         
@@ -56,7 +57,7 @@ class Trainer():
             self.history['test_loss'].append(test_loss)
 
             # Save checkpoint only if the validation loss improves (avoid overfitting)
-            if best_loss is None or (test_loss < best_loss and loss_mode == 'min') or (test_loss > best_loss and loss_mode == 'max'):
+            if best_loss is None or (test_loss < best_loss and self.loss_mode == 'min') or (test_loss > best_loss and self.loss_mode == 'max'):
                 print(f"Validation loss improved from {best_loss} to {test_loss}.")
                 print(f"Saving checkpoint to: {self.checkpoint_name}")
                 best_loss = test_loss
@@ -85,6 +86,9 @@ class Trainer():
 
                 predictions = model(mixture)
                 loss = self.loss_fn(predictions, sources)
+
+                if self.loss_mode == 'max': # To optimize for maximization, multiply by -1
+                    loss = -1 * loss
 
                 loss.mean().backward()
 
@@ -182,6 +186,8 @@ if __name__ == '__main__':
         data_mode = 'time'
         loss_fn = ScaleInvariantSDRLoss
         loss_mode = 'max'
+        # loss_fn = MultiResolutionSTFTLoss()
+        # loss_mode = 'min'
 
     if args.model == 'ConvTasNet':
         model = ConvTasNet(
