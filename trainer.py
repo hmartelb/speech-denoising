@@ -11,18 +11,30 @@ from torchvision import transforms
 from tqdm import tqdm
 
 
-class Trainer():
+class Trainer:
     def __init__(self, train_data, val_data, checkpoint_name, display_freq=10):
         self.train_data = train_data
         self.val_data = val_data
-        assert checkpoint_name.endswith('.tar'), "The checkpoint file must have .tar extension"
+        assert checkpoint_name.endswith(".tar"), "The checkpoint file must have .tar extension"
         self.checkpoint_name = checkpoint_name
         self.display_freq = display_freq
 
-    def fit(self, model, device, epochs=10, batch_size=16, lr=0.001, weight_decay=1e-5, optimizer=optim.Adam, loss_fn=F.mse_loss, loss_mode='min', gradient_clipping=True):
+    def fit(
+        self,
+        model,
+        device,
+        epochs=10,
+        batch_size=16,
+        lr=0.001,
+        weight_decay=1e-5,
+        optimizer=optim.Adam,
+        loss_fn=F.mse_loss,
+        loss_mode="min",
+        gradient_clipping=True,
+    ):
         # Get the device placement and make data loaders
         self.device = device
-        kwargs = {'num_workers': 1, 'pin_memory': True} if device == 'cuda' else {}
+        kwargs = {"num_workers": 1, "pin_memory": True} if device == "cuda" else {}
         self.train_loader = torch.utils.data.DataLoader(self.train_data, batch_size=batch_size, **kwargs)
         self.val_loader = torch.utils.data.DataLoader(self.val_data, batch_size=batch_size, **kwargs)
 
@@ -30,8 +42,8 @@ class Trainer():
         self.loss_fn = loss_fn
         self.loss_mode = loss_mode
         self.gradient_clipping = gradient_clipping
-        self.history = {'train_loss': [], 'test_loss': []}
-        
+        self.history = {"train_loss": [], "test_loss": []}
+
         previous_epochs = 0
         best_loss = None
 
@@ -39,36 +51,40 @@ class Trainer():
         if os.path.isfile(self.checkpoint_name):
             print(f"Resuming training from checkpoint: {self.checkpoint_name}")
             checkpoint = torch.load(self.checkpoint_name)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.loss_fn = checkpoint['loss_fn']
-            self.history = checkpoint['history']
-            previous_epochs = checkpoint['epoch']
-            best_loss = checkpoint['best_loss']
+            model.load_state_dict(checkpoint["model_state_dict"])
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.loss_fn = checkpoint["loss_fn"]
+            self.history = checkpoint["history"]
+            previous_epochs = checkpoint["epoch"]
+            best_loss = checkpoint["best_loss"]
         else:
             print(f"No checkpoint found, using default parameters...")
-        
-        for epoch in range(previous_epochs+1, epochs+1):
+
+        for epoch in range(previous_epochs + 1, epochs + 1):
             print(f"\nEpoch {epoch}/{epochs}:")
             train_loss = self.train(model)
             test_loss = self.test(model)
 
-            self.history['train_loss'].append(train_loss)
-            self.history['test_loss'].append(test_loss)
+            self.history["train_loss"].append(train_loss)
+            self.history["test_loss"].append(test_loss)
 
             # Save checkpoint only if the validation loss improves (avoid overfitting)
-            if best_loss is None or (test_loss < best_loss and self.loss_mode == 'min') or (test_loss > best_loss and self.loss_mode == 'max'):
+            if (
+                best_loss is None
+                or (test_loss < best_loss and self.loss_mode == "min")
+                or (test_loss > best_loss and self.loss_mode == "max")
+            ):
                 print(f"Validation loss improved from {best_loss} to {test_loss}.")
                 print(f"Saving checkpoint to: {self.checkpoint_name}")
                 best_loss = test_loss
 
                 checkpoint_data = {
-                    'epoch': epoch,
-                    'best_loss': best_loss,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
-                    'loss_fn': self.loss_fn,
-                    'history': self.history
+                    "epoch": epoch,
+                    "best_loss": best_loss,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": self.optimizer.state_dict(),
+                    "loss_fn": self.loss_fn,
+                    "history": self.history,
                 }
                 torch.save(checkpoint_data, self.checkpoint_name)
 
@@ -87,7 +103,7 @@ class Trainer():
                 predictions = model(mixture)
                 loss = self.loss_fn(predictions, sources)
 
-                if self.loss_mode == 'max': # To optimize for maximization, multiply by -1
+                if self.loss_mode == "max":  # To optimize for maximization, multiply by -1
                     loss = -1 * loss
 
                 loss.mean().backward()
@@ -101,9 +117,11 @@ class Trainer():
                 total_loss += loss.mean().item()
 
                 if i % self.display_freq == 0:
-                    progress.set_postfix({
-                        'loss': float(total_loss/(i+1)),
-                    })
+                    progress.set_postfix(
+                        {
+                            "loss": float(total_loss / (i + 1)),
+                        }
+                    )
 
         total_loss /= len(self.train_loader)
         return total_loss
@@ -124,105 +142,108 @@ class Trainer():
                     total_loss += loss.mean().item()
 
                     if i % self.display_freq == 0:
-                        progress.set_postfix({
-                            'loss': float(total_loss/(i+1)),
-                        })
+                        progress.set_postfix(
+                            {
+                                "loss": float(total_loss / (i + 1)),
+                            }
+                        )
 
         total_loss /= len(self.val_loader)
         return total_loss
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ap = argparse.ArgumentParser()
 
     # Datasets
-    ap.add_argument('--clean_train_path', required=True)
-    ap.add_argument('--clean_val_path', required=True)
-    ap.add_argument('--noise_train_path', required=True)
-    ap.add_argument('--noise_val_path', required=True)
-    ap.add_argument('--keep_rate', default=1.0, type=float)
+    ap.add_argument("--clean_train_path", required=True)
+    ap.add_argument("--clean_val_path", required=True)
+    ap.add_argument("--noise_train_path", required=True)
+    ap.add_argument("--noise_val_path", required=True)
+    ap.add_argument("--keep_rate", default=1.0, type=float)
 
     # Model checkpoint
-    ap.add_argument('--model', choices=['UNet', 'UNetDNP', 'ConvTasNet', 'TransUNet', 'SepFormer'])
-    ap.add_argument('--checkpoint_name', required=True, help='File with .tar extension')
+    ap.add_argument("--model", choices=["UNet", "UNetDNP", "ConvTasNet", "TransUNet", "SepFormer"])
+    ap.add_argument("--checkpoint_name", required=True, help="File with .tar extension")
 
     # Training params
-    ap.add_argument('--epochs', default=10, type=int)
-    ap.add_argument('--batch_size', default=16, type=int)
-    ap.add_argument('--lr', default=1e-4, type=float)
-    ap.add_argument('--gradient_clipping', action='store_true')
+    ap.add_argument("--epochs", default=10, type=int)
+    ap.add_argument("--batch_size", default=16, type=int)
+    ap.add_argument("--lr", default=1e-4, type=float)
+    ap.add_argument("--gradient_clipping", action="store_true")
 
     # GPU setup
-    ap.add_argument('--gpu', default='-1')
+    ap.add_argument("--gpu", default="-1")
 
     args = ap.parse_args()
 
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-    visible_devices = list(map(lambda x: int(x), args.gpu.split(',')))
+    visible_devices = list(map(lambda x: int(x), args.gpu.split(",")))
     print("Visible devices:", visible_devices)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-
     from torchaudio.models import ConvTasNet
 
-    from losses import (LogSTFTMagnitudeLoss, MultiResolutionSTFTLoss,
-                        ScaleInvariantSDRLoss, SpectralConvergenceLoss)
+    from losses import LogSTFTMagnitudeLoss, MultiResolutionSTFTLoss, ScaleInvariantSDRLoss, SpectralConvergenceLoss
     from models import *
 
     # from torchsummary import summary
     # Select the model to be used for training
-    if args.model == 'UNet':
+    if args.model == "UNet":
         model = UNet(1, 2, unet_scale_factor=16)
-        data_mode = 'amplitude'
+        data_mode = "amplitude"
         loss_fn = F.mse_loss
-        loss_mode = 'min'
+        loss_mode = "min"
 
-    if args.model == 'UNetDNP':
+    if args.model == "UNetDNP":
         model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
-        data_mode = 'time'
+        data_mode = "time"
         loss_fn = ScaleInvariantSDRLoss
-        loss_mode = 'max'
+        loss_mode = "max"
         # loss_fn = MultiResolutionSTFTLoss()
         # loss_mode = 'min'
 
-    if args.model == 'ConvTasNet':
+    if args.model == "ConvTasNet":
         model = ConvTasNet(
-            num_sources=2,                  
-            enc_kernel_size=16,             # 16
-            enc_num_feats=128,              # 512
-            msk_kernel_size=3,              # 3
-            msk_num_feats=32,               # 128
-            msk_num_hidden_feats=128,       # 512
-            msk_num_layers=8,               # 8
-            msk_num_stacks=3                # 3
+            num_sources=2,
+            enc_kernel_size=16,  # 16
+            enc_num_feats=128,  # 512
+            msk_kernel_size=3,  # 3
+            msk_num_feats=32,  # 128
+            msk_num_hidden_feats=128,  # 512
+            msk_num_layers=8,  # 8
+            msk_num_stacks=3,  # 3
         )
-        data_mode = 'time'
+        data_mode = "time"
         loss_fn = ScaleInvariantSDRLoss
-        loss_mode = 'max'
+        loss_mode = "max"
 
-    if args.model == 'TransUNet':
-        #
-        # TODO: Include model initialization
-        #
-        raise NotImplementedError
-
-        data_mode = 'amplitude'
+    if args.model == "TransUNet":
+        model = TransUNet(
+            img_dim=256,
+            in_channels=1,
+            classes=2,
+            vit_blocks=12,
+            vit_heads=4,
+            vit_dim_linear_mhsa_block=1024,
+        )
+        data_mode = "amplitude"
         loss_fn = F.mse_loss
-        loss_mode = 'min'
+        loss_mode = "min"
 
-    if args.model == 'SepFormer':
+    if args.model == "SepFormer":
         #
         # TODO: Include model initialization
         #
         raise NotImplementedError
 
-        data_mode = 'time'
+        data_mode = "time"
         loss_fn = ScaleInvariantSDRLoss
-        loss_mode = 'max'
+        loss_mode = "max"
 
     # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
     model = model.to(device)
@@ -232,13 +253,13 @@ if __name__ == '__main__':
     train_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_train_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_train_path, keep_rate=args.keep_rate),
-        mode=data_mode
+        mode=data_mode,
     )
 
     val_data = NoiseMixerDataset(
         clean_dataset=AudioDirectoryDataset(root=args.clean_val_path, keep_rate=args.keep_rate),
         noise_dataset=AudioDirectoryDataset(root=args.noise_val_path, keep_rate=args.keep_rate),
-        mode=data_mode
+        mode=data_mode,
     )
 
     trainer = Trainer(train_data, val_data, checkpoint_name=args.checkpoint_name)
@@ -250,6 +271,5 @@ if __name__ == '__main__':
         lr=args.lr,
         loss_fn=loss_fn,
         loss_mode=loss_mode,
-        gradient_clipping=args.gradient_clipping
+        gradient_clipping=args.gradient_clipping,
     )
-    
