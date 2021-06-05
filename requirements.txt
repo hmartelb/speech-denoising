@@ -10,6 +10,8 @@ matplotlib==3.3.4
 numpy==1.19.5
 pandas==1.1.5
 Pillow==8.2.0
+pesq==0.0.2
+pystoi==0.3.3
 pyaml==20.4.0
 pycparser==2.20
 pyparsing==2.4.7
