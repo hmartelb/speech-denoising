@@ -1,33 +1,18 @@
 import numpy as np
 import os
-from numpy.core.records import array
 from scipy.io import wavfile
 import scipy
 
 
-class SISDR():
-    def __init__(self, true_src_list, estimated_source_list):
-        self.true_src_list = true_src_list.transpose()
-        self.estimated_source_list = estimated_source_list.transpose()
-        #preprocess
-        self.true_src_list -= np.mean(self.true_src_list, axis=0)
-        self.estimated_source_list -= np.mean(
-            self.estimated_source_list, axis=0)
+class PESQ():
+    def __init__(self, estimate, clean):
+        self.estimate = estimate
+        self.clean = clean
 
     def get_evaluation(self, rate):
-        # see original code here: https://github.com/sigsep/bsseval/issues/3#issuecomment-494995846
-        eps = np.finfo(self.estimated_source_list[0].dtype).eps
-        reference = self.true_src_list
-        estimate = self.estimated_source_list
-        #reference to reference projection
-        Rss = np.sum((reference * reference), axis=0)
-        # get the scaling factor for clean sources
-        a = (eps + np.sum((reference * estimate), axis=0)) / (Rss + eps)
-        e_true = a * reference
-        e_res = estimate - e_true
-        Sss = np.sum((e_true**2), axis=0)
-        Snn = np.sum((e_res**2), axis=0)
-        return np.mean(10 * np.log10((eps + Sss)/(eps + Snn)))
+        from pesq import pesq
+        return pesq(rate, self.clean, self.estimate, 'wb')
+
 
 if __name__ == '__main__':
     #given as an input to the model
@@ -38,13 +23,12 @@ if __name__ == '__main__':
     estimated_src_list = []
     estimated_noise_list = []
 
-
     # List all subdirectories using scandir()
     basepath = './test_data/'
 
     for dirpath, dirnames, files in os.walk(basepath):
         for dirname in dirnames:
-            
+
             if dirname == "ground_truth":
                 basepath_2 = os.path.join(dirpath, dirname)
                 print(basepath_2)
@@ -54,10 +38,11 @@ if __name__ == '__main__':
                         print(basepath_3)
                         with os.scandir(basepath_3) as entries:
                             for entry in entries:
-                                file_path = os.path.join(basepath_3, entry.name)
+                                file_path = os.path.join(
+                                    basepath_3, entry.name)
                                 rate = wavfile.read(file_path)[0]
                                 data = wavfile.read(file_path)[1]
-                                
+
                                 if entry.name == 'clean.wav':
                                     print("clean rate", rate)
                                     true_src_list.append(data)
@@ -79,10 +64,11 @@ if __name__ == '__main__':
                         print(basepath_3)
                         with os.scandir(basepath_3) as entries:
                             for entry in entries:
-                                file_path = os.path.join(basepath_3, entry.name)
+                                file_path = os.path.join(
+                                    basepath_3, entry.name)
                                 rate = wavfile.read(file_path)[0]
                                 data = wavfile.read(file_path)[1]
-                                
+
                                 if entry.name == 'clean.wav':
                                     print("est clean rate", rate)
                                     estimated_src_list.append(data)
@@ -98,4 +84,10 @@ if __name__ == '__main__':
     estimated_src_list = np.asarray(estimated_src_list)
     estimated_noise_list = np.asarray(estimated_noise_list)
     #get the evaluation
-    print(SISDR(true_src_list, estimated_src_list).get_evaluation(16000))
+    pesq_list = []
+
+    for clean, estimate in zip(true_src_list, estimated_src_list):
+        pesq = PESQ(estimate, clean).get_evaluation(16000)
+        pesq_list.append(pesq)
+
+    print(np.mean(pesq_list))

@@ -19,6 +19,7 @@ class SISIR():
         eps = np.finfo(self.estimated_source_list[0].dtype).eps
         reference = self.true_src_list
         estimate = self.estimated_source_list
+        #reference onto reference projection
         Rss = np.sum((reference * reference), axis=0)
         # get the scaling factor for clean sources
         a = (eps + np.sum((reference * estimate), axis=0)) / (Rss + eps)
@@ -27,6 +28,7 @@ class SISIR():
         Sss = np.sum((e_true**2), axis=0)
         Snn = np.sum((e_res**2), axis=0)
         #GET SIR
+        #reference onto residual projection
         Rsr = np.dot(reference.T, e_res)
         Rss = np.dot(reference.T, reference)
         b = np.linalg.lstsq(Rss, Rsr)
