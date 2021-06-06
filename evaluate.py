@@ -6,17 +6,14 @@ from tqdm import tqdm
 
 from data import AudioDirectoryDataset, NoiseMixerDataset
 from data.utils import find_files, make_path
-from models import *
+from getmodel import get_model
+
+# from models import *
 from predict import predict_spectrogram, predict_waveform
 
 
 def predict_evaluation_data(
-    evaluation_directory,
-    output_directory,
-    model,
-    data_mode="time",
-    length_seconds=4,
-    normalize=False,
+    evaluation_directory, output_directory, model, data_mode="time", length_seconds=4, normalize=False,
 ):
     mixture_filenames = [f for f in find_files(evaluation_directory) if f.endswith("mixture.wav")]
 
@@ -51,12 +48,7 @@ def predict_evaluation_data(
 
 
 def generate_evaluation_data(
-    clean_directory,
-    noise_directory,
-    output_directory,
-    min_snr=0,
-    max_snr=18,
-    sr=16000,
+    clean_directory, noise_directory, output_directory, min_snr=0, max_snr=18, sr=16000,
 ):
     """
     Generate input and output pais for evaluation
@@ -117,7 +109,7 @@ if __name__ == "__main__":
     ap.add_argument("--sr", default=16000)
 
     # Model to use
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--model", choices=["UNet", "UNetDNP", "ConvTasNet", "TransUNet", "SepFormer"])
     ap.add_argument("--checkpoint_name", required=True, help="File with .tar extension")
 
     # GPU setup
@@ -152,13 +144,12 @@ if __name__ == "__main__":
         )
 
     # Get the model and the data mode
-    if args.model == "UNet":
-        model = UNet(1, 2, unet_scale_factor=16)
-        data_mode = "amplitude"
+    training_utils_dict = get_model(args.model)
 
-    if args.model == "UNetDNP":
-        model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
-        data_mode = "time"
+    model = training_utils_dict["model"]
+    data_mode = training_utils_dict["data_mode"]
+    # loss_fn = training_utils_dict["loss_fn"]
+    # loss_mode = training_utils_dict["loss_mode"]
 
     assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
         ".tar"
@@ -175,5 +166,5 @@ if __name__ == "__main__":
         model=model,
         data_mode=data_mode,
         length_seconds=4,
-        normalize=True
+        normalize=True,
     )
