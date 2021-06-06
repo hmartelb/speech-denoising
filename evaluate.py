@@ -2,6 +2,7 @@ import os
 
 import torch
 import torchaudio
+from torchaudio.models import ConvTasNet
 from tqdm import tqdm
 
 from data import AudioDirectoryDataset, NoiseMixerDataset
@@ -158,6 +159,19 @@ if __name__ == "__main__":
 
     if args.model == "UNetDNP":
         model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
+        data_mode = "time"
+
+    if args.model == "ConvTasNet":
+        model = ConvTasNet(
+            num_sources=2,                  
+            enc_kernel_size=16,             # 16
+            enc_num_feats=128,              # 512
+            msk_kernel_size=3,              # 3
+            msk_num_feats=32,               # 128
+            msk_num_hidden_feats=128,       # 512
+            msk_num_layers=8,               # 8
+            msk_num_stacks=3                # 3
+        )
         data_mode = "time"
 
     assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(

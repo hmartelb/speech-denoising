@@ -116,8 +116,19 @@ if __name__ == '__main__':
     print(f"Using device: {device} ({args.gpu})")
 
     from models import UNet, UNetDNP
+    from torchaudio.models import ConvTasNet
     
-    model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
+    model = ConvTasNet(
+        num_sources=2,                  
+        enc_kernel_size=16,             # 16
+        enc_num_feats=128,              # 512
+        msk_kernel_size=3,              # 3
+        msk_num_feats=32,               # 128
+        msk_num_hidden_feats=128,       # 512
+        msk_num_layers=8,               # 8
+        msk_num_stacks=3                # 3
+    )
+    # model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
     # model = UNet(1, 2, unet_scale_factor=16)
     # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
   
