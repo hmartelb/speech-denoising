@@ -31,9 +31,9 @@ default_params = {
         "img_dim": 256,
         "in_channels": 1,
         "classes": 2,
-        "vit_blocks": 12,
+        "vit_blocks": 6, # 12
         "vit_heads": 4,
-        "vit_dim_linear_mhsa_block": 1024,
+        "vit_dim_linear_mhsa_block": 128, # 1024
     },
     "SepFormer": {},
 }
