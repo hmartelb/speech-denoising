@@ -5,7 +5,7 @@ from pprint import pprint
 import librosa
 import numpy as np
 import pandas as pd
-from pesq import pesq
+from pesq import pesq, PesqError
 from pystoi.stoi import stoi
 
 from tqdm import tqdm
@@ -34,20 +34,40 @@ class Evaluator:
         self.sources = sources
         self.sr = sr
 
-    def eval_single(self, ground_truth, estimation):
+        self.pesq_wb_errors = 0
+        self.pesq_nb_errors = 0
+
+    def eval_single(self, ground_truth, estimation, idx):
+        sdr, sir, sar = self.blind_sep_metrics(ground_truth[:,0:1], estimation[:,0:1], scaling=True)
+        # sdr, sir, sar = 0,0,0
+        pesq_wb = self.PESQ(ground_truth[:,0], estimation[:,0], mode="wb")
+        if pesq_wb < -0.999:
+            self.pesq_wb_errors += 1
+        #     print(f"Error wb idx={idx}, value={pesq_wb}")
+        pesq_nb = self.PESQ(ground_truth[:,0], estimation[:,0], mode="nb")
+        if pesq_nb < -0.999:
+            self.pesq_nb_errors += 1
+        #     print(f"Error nb idx={idx}, value={pesq_nb}")
+        stoi = self.STOI(ground_truth[:,0], estimation[:,0])
+        # stoi = 0
+
         return {
-            "SI-SDR": self.SI_SDR(ground_truth, estimation),
-            "PESQ-wb": self.PESQ(ground_truth[0,], estimation[0,], mode="wb"),
-            "PESQ-nb": self.PESQ(ground_truth[0,], estimation[0,], mode="nb"),
-            "STOI": self.STOI(ground_truth[0,], estimation[0,]),
+            "SDR": sdr,
+            "SIR": sir, 
+            "SAR": sar,
+            "PESQ-wb": pesq_wb,
+            "PESQ-nb": pesq_nb,
+            "STOI": stoi,
         }
 
     def eval_directory(self, ground_truth_path, estimations_path):
-        stats = {}
-        metrics = {"SI-SDR": [], "PESQ-wb": [], "PESQ-nb": [], "STOI": []}
+        # stats = {}
+        metrics = { "SDR": [], "SIR": [], "SAR": [], "PESQ-wb": [], "PESQ-nb": [], "STOI": [] }
+        failures = 0
 
         mixture_files = list(find_files(ground_truth_path, extensions=f"{self.mixture}.wav"))
-        for true_file in tqdm(mixture_files):
+        
+        for i,true_file in enumerate(tqdm(mixture_files)):
             estimation_file = true_file.replace(ground_truth_path, estimations_path)
 
             # Get the names of the sources and load into array of shape [samples, sources]
@@ -58,12 +78,24 @@ class Evaluator:
                 sources_dict={s: estimation_file.replace(self.mixture, s) for s in self.sources}, concat=True,
             )
 
-            single_metrics = self.eval_single(true_sources, estimated_sources)
+            # try:
+            
+            single_metrics = self.eval_single(true_sources, estimated_sources, idx=i)
             for sm in single_metrics:
                 metrics[sm].append(single_metrics[sm])
+            # except:
+            #     failures += 1
 
-        stats = {m: {"mean": np.mean(metrics[m]), "std": np.std(metrics[m])} for m in metrics}
-        return stats
+       
+
+        print(f"Evaluation finished")
+        print(f"- Directories (gt, pred): {ground_truth_path, estimations_path}")
+        print(f"- Total files: {len(mixture_files)}")
+        print(f"- Failures: {failures}")
+
+        return metrics
+        # stats = {m: {"mean": np.mean(metrics[m]), "std": np.std(metrics[m])} for m in metrics}
+        # return stats
 
     def _load_sources(self, sources_dict, concat=False, fmt="channels_first"):
         loaded = {}
@@ -75,8 +107,8 @@ class Evaluator:
 
         if concat:
             loaded = np.concatenate([loaded[s] for s in loaded], axis=1)
-            if fmt == "channels_first":
-                loaded = np.transpose(loaded, axes=(1, 0))
+            # if fmt == "channels_first":
+            #     loaded = np.transpose(loaded, axes=(1, 0))
 
         return loaded
 
@@ -85,40 +117,38 @@ class Evaluator:
 
     def PESQ(self, clean, estimate, mode="wb"):
         assert mode in ["wb", "nb"], "Invalid mode, it must be one of ['wb', 'nb']"
-        return pesq(self.sr, clean, estimate, mode=mode)
+        return pesq(self.sr, clean, estimate, mode=mode, on_error=PesqError.RETURN_VALUES)
 
-    def SI_SDR(self, clean, estimate, eps=1e-9):
-        Rss = np.sum((clean * clean), axis=0)
-        a = (eps + np.sum((clean * estimate), axis=0)) / (Rss + eps)
-        e_true = a * clean
-        e_res = estimate - e_true
-        Sss = np.sum((e_true ** 2), axis=0)
-        Snn = np.sum((e_res ** 2), axis=0)
-        return np.mean(10 * np.log10((eps + Sss) / (eps + Snn)))
+    def blind_sep_metrics(self, reference, estimate, scaling=True):
+        reference -= np.mean(reference, axis=0)
+        estimate -= np.mean(estimate, axis=0)
 
-    def compute_measures(self, clean, estimate, scaling=True, eps=1e-9):
-        Rss = np.sum((clean * clean), axis=0)
-        a = (eps + np.sum((clean * estimate), axis=0)) / (Rss + eps) if scaling else 1
+        eps = np.finfo(estimate[0].dtype).eps
 
-        e_true = a * clean
+        # SDR
+        Rss = np.sum((reference * reference), axis=0)
+
+        scale = (eps + np.sum((reference * estimate), axis=0)) / (Rss + eps) if scaling else 1
+
+        e_true = scale * reference
         e_res = estimate - e_true
 
-        Sss = (e_true ** 2).sum()
-        Snn = (e_res ** 2).sum()
+        Sss = np.sum((e_true**2), axis=0)
+        Snn = np.sum((e_res**2), axis=0)
 
-        sdr = 10 * np.log10(Sss / (Snn + eps))
+        # SIR and SAR
+        Rsr = np.dot(reference.T, e_res)
+        Rss = np.dot(reference.T, reference) ## FIXME: Is this needed? Check with np.sum((reference * reference), axis=0)
 
-        Rsr = np.sum((clean * e_res), axis=0)
-        # Rsr = np.dot(clean.transpose(), e_res)
-        b = np.linalg.solve(Rss, Rsr)
-
-        e_interf = np.dot(clean, b)
+        b = np.linalg.lstsq(Rss, Rsr)
+        e_interf = np.dot(reference, b[0])
         e_artif = e_res - e_interf
 
-        sir = 10 * np.log10(Sss / ((e_interf ** 2).sum() + eps))
-        sar = 10 * np.log10(Sss / ((e_artif ** 2).sum() + eps))
+        SDR = np.mean(10 * np.log10((Sss + eps) / (eps + Snn)))
+        SIR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_interf**2, axis=0))))
+        SAR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_artif**2, axis=0))))      
 
-        return sdr, sir, sar
+        return SDR, SIR, SAR
 
 
 if __name__ == "__main__":
@@ -133,8 +163,10 @@ if __name__ == "__main__":
 
     ev = Evaluator()
     results = ev.eval_directory(args.ground_truth, args.estimations)
-    # print(results)
 
-    df = pd.DataFrame(results).T
+    print(ev.pesq_wb_errors, ev.pesq_nb_errors)
+
+    df = pd.DataFrame(results)
     print(df.head(10))
+    print(df.describe())
     df.to_csv(f"{args.estimations}.csv")
