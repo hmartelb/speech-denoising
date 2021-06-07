@@ -8,7 +8,7 @@ default_params = {
     "UNet": {
         "n_channels": 1,
         "n_class": 2,
-        "unet_depth": 6, # Make compatible with current checkpoint. TODO: try with 6 
+        "unet_depth": 6, 
         "unet_scale_factor": 16,
     },
     "UNetDNP": {
