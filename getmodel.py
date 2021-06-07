@@ -34,6 +34,7 @@ default_params = {
         "vit_blocks": 6, # 12
         "vit_heads": 4,
         "vit_dim_linear_mhsa_block": 128, # 1024
+        "apply_masks": True
     },
     "SepFormer": {},
 }

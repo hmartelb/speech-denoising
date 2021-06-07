@@ -12,6 +12,7 @@ class TransUNet(nn.Module):
         vit_blocks=12,
         vit_heads=4,
         vit_dim_linear_mhsa_block=1024,
+        apply_masks=False,
     ):
         super(TransUNet, self).__init__()
 
@@ -21,6 +22,8 @@ class TransUNet(nn.Module):
         self.vit_blocks = 12
         self.vit_heads = 4
         self.vit_dim_linear_mhsa_block = 1024
+
+        self.apply_masks = apply_masks
 
         self.model = transunet_model(
             img_dim=self.img_dim,
@@ -32,7 +35,14 @@ class TransUNet(nn.Module):
         )
 
     def forward(self, x):
-        return self.model(x)
+        old = x
+        x = self.model(x)
+
+        if self.apply_masks:
+            x = nn.Softmax(dim=1)(x)
+            x = x * torch.cat([old] * self.classes, dim=1)
+        
+        return x
 
 
 if __name__ == "__main__":
