@@ -24,9 +24,9 @@ def predict_evaluation_data(
             sr = 16000
 
         mixture /= mixture.abs().max()
-        mixture = mixture.cuda()
-
+    
         if data_mode == "time":
+            mixture = mixture.cuda()
             clean_output, noise_output = predict_waveform(mixture, sr, length_seconds, model)
         else:
             clean_output, noise_output = predict_spectrogram(mixture, sr, length_seconds, model)
