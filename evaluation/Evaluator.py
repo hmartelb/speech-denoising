@@ -38,7 +38,7 @@ class Evaluator:
         self.pesq_nb_errors = 0
 
     def eval_single(self, ground_truth, estimation, idx):
-        sdr, sir, sar = self.blind_sep_metrics(ground_truth[:,0:1], estimation[:,0:1], scaling=True)
+        sdr, sir, sar = self.blind_sep_metrics(ground_truth, estimation, scaling=True)
         # sdr, sir, sar = 0,0,0
         pesq_wb = self.PESQ(ground_truth[:,0], estimation[:,0], mode="wb")
         if pesq_wb < -0.999:
