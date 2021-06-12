@@ -24,16 +24,19 @@ def predict_evaluation_data(
             sr = 16000
 
         mixture /= mixture.abs().max()
-    
+
         if data_mode == "time":
             mixture = mixture.cuda()
             clean_output, noise_output = predict_waveform(mixture, sr, length_seconds, model)
         else:
             clean_output, noise_output = predict_spectrogram(mixture, sr, length_seconds, model)
 
-        if normalize:
-            clean_output /= clean_output.abs().max()
-            noise_output /= noise_output.abs().max()
+        # Global normalization 
+        if normalize: 
+            norm_factor = torch.max(torch.max(mixture.abs().max(), clean_output.abs().max()), noise_output.abs().max())
+            mixture /= norm_factor
+            clean_output /= norm_factor
+            noise_output /= norm_factor
 
         # Generate the output names
         clean_output_filename = f.replace(evaluation_directory, output_directory).replace("mixture", "clean")
@@ -73,12 +76,8 @@ def generate_evaluation_data(
         output_folder = os.path.join(output_directory, str(i).zfill(n_digits))
         make_path(output_folder)
 
-        clean = sources[
-            0:1,
-        ]
-        noise = sources[
-            1:2,
-        ]
+        clean = sources[0:1, :]
+        noise = sources[1:2, :]
 
         # Save the audios
         torchaudio.save(os.path.join(f"{output_folder}", "mixture.wav"), mixture, sr)
@@ -143,28 +142,28 @@ if __name__ == "__main__":
             sr=args.sr,
         )
 
-    # Get the model and the data mode
-    training_utils_dict = get_model(args.model)
+    # # Get the model and the data mode
+    # training_utils_dict = get_model(args.model)
 
-    model = training_utils_dict["model"]
-    data_mode = training_utils_dict["data_mode"]
-    # loss_fn = training_utils_dict["loss_fn"]
-    # loss_mode = training_utils_dict["loss_mode"]
+    # model = training_utils_dict["model"]
+    # data_mode = training_utils_dict["data_mode"]
+    # # loss_fn = training_utils_dict["loss_fn"]
+    # # loss_mode = training_utils_dict["loss_mode"]
 
-    assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
-        ".tar"
-    ), "The specified checkpoint_name is not a valid checkpoint"
-    checkpoint = torch.load(args.checkpoint_name)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    model = model.to(device)
-    model.eval()
-    print(f"Model loaded from checkpoint: {args.checkpoint_name}")
+    # assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
+    #     ".tar"
+    # ), "The specified checkpoint_name is not a valid checkpoint"
+    # checkpoint = torch.load(args.checkpoint_name)
+    # model.load_state_dict(checkpoint["model_state_dict"])
+    # model = model.to(device)
+    # model.eval()
+    # print(f"Model loaded from checkpoint: {args.checkpoint_name}")
 
-    predict_evaluation_data(
-        evaluation_directory=args.evaluation_path,
-        output_directory=args.output_path,
-        model=model,
-        data_mode=data_mode,
-        length_seconds=4,
-        normalize=True,
-    )
+    # predict_evaluation_data(
+    #     evaluation_directory=args.evaluation_path,
+    #     output_directory=args.output_path,
+    #     model=model,
+    #     data_mode=data_mode,
+    #     length_seconds=4,
+    #     normalize=True,
+    # )

@@ -47,9 +47,6 @@ class NoiseMixerDataset(Dataset):
         clean, _ = self.clean_dataset[index % len(self.clean_dataset)]
         noise, _ = self.noise_dataset[index % len(self.noise_dataset)]
 
-        clean /= clean.abs().max()
-        noise /= noise.abs().max()
-
         # NOTE: We need to use the PyTorch random number generator (and not Numpy!) to select the random value of SNR.
         # https://tanelp.github.io/posts/a-bug-that-plagues-thousands-of-open-source-ml-projects/
         snr_db = (self.max_snr-self.min_snr)*torch.rand(1) + self.min_snr 
@@ -63,8 +60,19 @@ class NoiseMixerDataset(Dataset):
         snr = math.exp(snr_db / 10)
         scale = snr * noise_power / clean_power
 
-        clean = scale * clean ###  
-        mixture = (clean + noise) / 2
+        clean *= scale
+        mixture = clean + noise
+
+        # Get the max value across all sources and mixture for normalization
+        norm_factor = torch.max(torch.max(mixture.abs().max(), clean.abs().max()), noise.abs().max())
+
+        # print(mixture.abs().max(), clean.abs().max(), noise.abs().max())
+        # print(norm_factor)
+    
+        # Normalize wrt mixture
+        mixture /= norm_factor
+        clean /= norm_factor
+        noise /= norm_factor
 
         if self.mode in ['amplitude', 'power', 'db']:
             # Compute the magnitude spectrogram

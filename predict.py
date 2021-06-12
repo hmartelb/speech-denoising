@@ -28,7 +28,7 @@ def predict_spectrogram(audio, sr, length_seconds, model):
         # 2) Add batch dimension
         # 3) Get predictions from the model
         seg_magnitude, seg_phase = get_magnitude(
-            seg_audio, spectrogram_size=256, mode="amplitude", normalize=True, pad=True, return_phase=True
+            seg_audio, spectrogram_size=256, mode="amplitude", normalize=False, pad=True, return_phase=True
         )
         seg_magnitude = seg_magnitude.unsqueeze(0)  # Add batch dimension
         out_magnitude = model(seg_magnitude.cuda())  # Use the model
@@ -42,13 +42,13 @@ def predict_spectrogram(audio, sr, length_seconds, model):
         #
         clean_magnitude = out_magnitude[0:1, :, :]
         clean_audio = get_audio_from_magnitude(
-            clean_magnitude, seg_phase, spectrogram_size=256, mode="amplitude", normalize=True
+            clean_magnitude, seg_phase, spectrogram_size=256, mode="amplitude", normalize=False
         )
         clean_audio = clean_audio[:, 0:segment_length]
 
         noise_magnitude = out_magnitude[1:2, :, :]
         noise_audio = get_audio_from_magnitude(
-            noise_magnitude, seg_phase, spectrogram_size=256, mode="amplitude", normalize=True
+            noise_magnitude, seg_phase, spectrogram_size=256, mode="amplitude", normalize=False
         )
         noise_audio = noise_audio[:, 0:segment_length]
 
@@ -160,8 +160,9 @@ if __name__ == "__main__":
     if data_mode in ["amplitude", "power", "db"]:
         clean_output, noise_output = predict_spectrogram(audio, sr, args.length_seconds, model)
 
-    clean_output /= clean_output.abs().max()
-    noise_output /= noise_output.abs().max()
+    # Normalization wrt mixture
+    clean_output /= audio.abs().max()#clean_output.abs().max()
+    noise_output /= audio.abs().max()#noise_output.abs().max()
 
     plt.subplot(3, 1, 1)
     plt.plot(
