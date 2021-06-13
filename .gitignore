@@ -132,7 +132,7 @@ dmypy.json
 data/unit_tests
 
 # Model checkpoints
-checkpoints/*.tar
+checkpoints/
 .vscode/settings.json
 
 datasets/
