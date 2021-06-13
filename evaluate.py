@@ -28,6 +28,10 @@ def predict_evaluation_data(
         if data_mode == "time":
             mixture = mixture.cuda()
             clean_output, noise_output = predict_waveform(mixture, sr, length_seconds, model)
+            
+            mixture = mixture.detach().cpu()
+            clean_output = clean_output.detach().cpu()
+            noise_output = noise_output.detach().cpu()
         else:
             clean_output, noise_output = predict_spectrogram(mixture, sr, length_seconds, model)
 
