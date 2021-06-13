@@ -109,37 +109,41 @@ if __name__ == "__main__":
         # Start training 
         model = model.to(device)
 
-        tr = Trainer(train_data, val_data, checkpoint_name=checkpoint_name)
-        history = tr.fit(
-            model,
-            device,
-            epochs=experiment['epochs'],
-            batch_size=experiment['batch_size'],
-            lr=experiment['lr'],
-            loss_fn=loss_fn,
-            loss_mode=loss_mode,
-            gradient_clipping=args.gradient_clipping,
-        )
-
-        # Restore from the best checkpoint
-        checkpoint = torch.load(checkpoint_name)
-        model.load_state_dict(checkpoint["model_state_dict"])
-        model = model.to(device)
-        model.eval()
-        print(f"Model loaded from checkpoint: {checkpoint_name}")
+        if not os.path.isfile(checkpoint_name):
+            # Train an generate the model checkpoint if it does not exit. Otherwise skip and evaluate
+            tr = Trainer(train_data, val_data, checkpoint_name=checkpoint_name)
+            history = tr.fit(
+                model,
+                device,
+                epochs=experiment['epochs'],
+                batch_size=experiment['batch_size'],
+                lr=experiment['lr'],
+                loss_fn=loss_fn,
+                loss_mode=loss_mode,
+                gradient_clipping=args.gradient_clipping,
+            )
 
         # Generate the folder for the model predictions
         evaluation_output_directory = os.path.join(args.evaluations_folder, model_name)
-        make_path(evaluation_output_directory)
+        
+        if not os.path.isdir(evaluation_output_directory):
+            # Restore from the best checkpoint
+            checkpoint = torch.load(checkpoint_name)
+            model.load_state_dict(checkpoint["model_state_dict"])
+            model = model.to(device)
+            model.eval()
+            print(f"Model loaded from checkpoint: {checkpoint_name}")
 
-        # Get predictions for evaluation
-        predict_evaluation_data(
-            evaluation_directory=os.path.join(args.evaluations_folder, args.ground_truth_name),
-            output_directory=evaluation_output_directory,
-            model=model,
-            data_mode=data_mode,
-            length_seconds=4,
-            normalize=True,
-        )
+            make_path(evaluation_output_directory)
 
-        del model
+            # Get predictions for evaluation
+            predict_evaluation_data(
+                evaluation_directory=os.path.join(args.evaluations_folder, args.ground_truth_name),
+                output_directory=evaluation_output_directory,
+                model=model,
+                data_mode=data_mode,
+                length_seconds=4,
+                normalize=True,
+            )
+
+            del model
