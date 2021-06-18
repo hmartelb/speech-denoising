@@ -7,17 +7,14 @@ from tqdm import tqdm
 
 from data import AudioDirectoryDataset, NoiseMixerDataset
 from data.utils import find_files, make_path
-from models import *
+from getmodel import get_model
+
+# from models import *
 from predict import predict_spectrogram, predict_waveform
 
 
 def predict_evaluation_data(
-    evaluation_directory,
-    output_directory,
-    model,
-    data_mode="time",
-    length_seconds=4,
-    normalize=False,
+    evaluation_directory, output_directory, model, data_mode="time", length_seconds=4, normalize=False,
 ):
     mixture_filenames = [f for f in find_files(evaluation_directory) if f.endswith("mixture.wav")]
 
@@ -28,16 +25,23 @@ def predict_evaluation_data(
             sr = 16000
 
         mixture /= mixture.abs().max()
-        mixture = mixture.cuda()
 
         if data_mode == "time":
+            mixture = mixture.cuda()
             clean_output, noise_output = predict_waveform(mixture, sr, length_seconds, model)
+            
+            mixture = mixture.detach().cpu()
+            clean_output = clean_output.detach().cpu()
+            noise_output = noise_output.detach().cpu()
         else:
             clean_output, noise_output = predict_spectrogram(mixture, sr, length_seconds, model)
 
-        if normalize:
-            clean_output /= clean_output.abs().max()
-            noise_output /= noise_output.abs().max()
+        # Global normalization 
+        if normalize: 
+            norm_factor = torch.max(torch.max(mixture.abs().max(), clean_output.abs().max()), noise_output.abs().max())
+            mixture /= norm_factor
+            clean_output /= norm_factor
+            noise_output /= norm_factor
 
         # Generate the output names
         clean_output_filename = f.replace(evaluation_directory, output_directory).replace("mixture", "clean")
@@ -52,12 +56,7 @@ def predict_evaluation_data(
 
 
 def generate_evaluation_data(
-    clean_directory,
-    noise_directory,
-    output_directory,
-    min_snr=0,
-    max_snr=18,
-    sr=16000,
+    clean_directory, noise_directory, output_directory, min_snr=0, max_snr=18, sr=16000,
 ):
     """
     Generate input and output pais for evaluation
@@ -82,12 +81,8 @@ def generate_evaluation_data(
         output_folder = os.path.join(output_directory, str(i).zfill(n_digits))
         make_path(output_folder)
 
-        clean = sources[
-            0:1,
-        ]
-        noise = sources[
-            1:2,
-        ]
+        clean = sources[0:1, :]
+        noise = sources[1:2, :]
 
         # Save the audios
         torchaudio.save(os.path.join(f"{output_folder}", "mixture.wav"), mixture, sr)
@@ -118,7 +113,7 @@ if __name__ == "__main__":
     ap.add_argument("--sr", default=16000)
 
     # Model to use
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--model", choices=["UNet", "UNetDNP", "ConvTasNet", "TransUNet", "SepFormer"])
     ap.add_argument("--checkpoint_name", required=True, help="File with .tar extension")
 
     # GPU setup
@@ -151,43 +146,3 @@ if __name__ == "__main__":
             max_snr=args.max_snr,
             sr=args.sr,
         )
-
-    # Get the model and the data mode
-    if args.model == "UNet":
-        model = UNet(1, 2, unet_scale_factor=16)
-        data_mode = "amplitude"
-
-    if args.model == "UNetDNP":
-        model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
-        data_mode = "time"
-
-    if args.model == "ConvTasNet":
-        model = ConvTasNet(
-            num_sources=2,                  
-            enc_kernel_size=16,             # 16
-            enc_num_feats=128,              # 512
-            msk_kernel_size=3,              # 3
-            msk_num_feats=32,               # 128
-            msk_num_hidden_feats=128,       # 512
-            msk_num_layers=8,               # 8
-            msk_num_stacks=3                # 3
-        )
-        data_mode = "time"
-
-    assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
-        ".tar"
-    ), "The specified checkpoint_name is not a valid checkpoint"
-    checkpoint = torch.load(args.checkpoint_name)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    model = model.to(device)
-    model.eval()
-    print(f"Model loaded from checkpoint: {args.checkpoint_name}")
-
-    predict_evaluation_data(
-        evaluation_directory=args.evaluation_path,
-        output_directory=args.output_path,
-        model=model,
-        data_mode=data_mode,
-        length_seconds=4,
-        normalize=True
-    )

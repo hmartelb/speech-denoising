@@ -10,9 +10,17 @@ from torchsummary import summary
 from torchvision import transforms
 from tqdm import tqdm
 
+from getmodel import get_model
+
 
 class Trainer:
-    def __init__(self, train_data, val_data, checkpoint_name, display_freq=10):
+    def __init__(
+        self,
+        train_data,
+        val_data,
+        checkpoint_name,
+        display_freq=10,
+    ):
         self.train_data = train_data
         self.val_data = val_data
         assert checkpoint_name.endswith(".tar"), "The checkpoint file must have .tar extension"
@@ -186,64 +194,18 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
-    from torchaudio.models import ConvTasNet
+    # from torchaudio.models import ConvTasNet
 
-    from losses import LogSTFTMagnitudeLoss, MultiResolutionSTFTLoss, ScaleInvariantSDRLoss, SpectralConvergenceLoss
-    from models import *
+    # from losses import LogSTFTMagnitudeLoss, MultiResolutionSTFTLoss, ScaleInvariantSDRLoss, SpectralConvergenceLoss
+    # from models import *
 
-    # from torchsummary import summary
     # Select the model to be used for training
-    if args.model == "UNet":
-        model = UNet(1, 2, unet_scale_factor=16)
-        data_mode = "amplitude"
-        loss_fn = F.mse_loss
-        loss_mode = "min"
+    training_utils_dict = get_model(args.model)
 
-    if args.model == "UNetDNP":
-        model = UNetDNP(n_channels=1, n_class=2, unet_depth=6, n_filters=16)
-        data_mode = "time"
-        loss_fn = ScaleInvariantSDRLoss
-        loss_mode = "max"
-        # loss_fn = MultiResolutionSTFTLoss()
-        # loss_mode = 'min'
-
-    if args.model == "ConvTasNet":
-        model = ConvTasNet(
-            num_sources=2,
-            enc_kernel_size=16,  # 16
-            enc_num_feats=128,  # 512
-            msk_kernel_size=3,  # 3
-            msk_num_feats=32,  # 128
-            msk_num_hidden_feats=128,  # 512
-            msk_num_layers=8,  # 8
-            msk_num_stacks=3,  # 3
-        )
-        data_mode = "time"
-        loss_fn = ScaleInvariantSDRLoss
-        loss_mode = "max"
-
-    if args.model == "TransUNet":
-        model = TransUNet(
-            img_dim=256,
-            in_channels=1,
-            classes=2,
-            vit_blocks=12,
-            vit_heads=4,
-            vit_dim_linear_mhsa_block=1024,
-        )
-        data_mode = "amplitude"
-        loss_fn = F.mse_loss
-        loss_mode = "min"
-
-    if args.model == "SepFormer":
-        #
-        # TODO: Include model initialization
-        #
-        raise NotImplementedError
-
-        data_mode = "time"
-        loss_fn = ScaleInvariantSDRLoss
-        loss_mode = "max"
+    model = training_utils_dict["model"]
+    data_mode = training_utils_dict["data_mode"]
+    loss_fn = training_utils_dict["loss_fn"]
+    loss_mode = training_utils_dict["loss_mode"]
 
     # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
     model = model.to(device)
