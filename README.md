@@ -36,7 +36,7 @@ trainer.py
 ### Environment setup
 Clone this repository to your system.
 ```
-$ git clone https://github.com/hmartelb/audio-denoising.git
+$ git clone https://github.com/hmartelb/speech-denoising.git
 ```
 
 Make sure that you have Python 3 installed in your system. Also, Pytorch 1.5 or above needs to be installed. Check the [official installation guide](https://pytorch.org/get-started/locally/) to set it up according to your system requirements and CUDA version.
