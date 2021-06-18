@@ -123,6 +123,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} ({args.gpu})")
 
+
     # Get the model
     training_utils_dict = get_model(args.model)
 
@@ -130,8 +131,6 @@ if __name__ == "__main__":
     data_mode = training_utils_dict["data_mode"]
     # loss_fn = training_utils_dict["loss_fn"]
     # loss_mode = training_utils_dict["loss_mode"]
-
-    # model = torch.nn.DataParallel(model, device_ids=list(range(len(visible_devices))))
 
     assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
         ".tar"
