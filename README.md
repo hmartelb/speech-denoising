@@ -2,7 +2,9 @@
 
 Speech Denoising project for the Deep Learning course at Tsinghua University, Spring semester 2021.
 
-![Alt text](docs\img\Speech_denoising_cover.PNG?raw=true "Title")
+<p align="center">
+<img src="docs\img\Speech_denoising_cover.PNG">
+</p>
 
 This code uses a Source Separation approach to recover clean speech signals from a noisy acoustic environment. The high diversity of noises in the dataset motivated to perform the optimization on 2 sources, namely the clean speech signal and the background noise. 
 
