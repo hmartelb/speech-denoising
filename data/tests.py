@@ -21,31 +21,29 @@ def _get_data(dataset):
     return input_data, output_data
 
 
-def shape_test(dataset, expected_in_shape, expected_out_shape=None, split='train'):
+def shape_test(dataset, expected_in_shape, expected_out_shape=None, split="train"):
     input_data, output_data = _get_data(dataset)
-    assert list(
-        input_data.shape) == expected_in_shape, f"Wrong input shape in single example ({split}). Expected {expected_in_shape}, but got {list(input_data.shape)}"
+    assert (
+        list(input_data.shape) == expected_in_shape
+    ), f"Wrong input shape in single example ({split}). Expected {expected_in_shape}, but got {list(input_data.shape)}"
     if expected_out_shape:
-        assert list(
-            output_data.shape) == expected_out_shape, f"Wrong output shape in single example ({split}). Expected {expected_out_shape}, but got {list(output_data.shape)}"
+        assert (
+            list(output_data.shape) == expected_out_shape
+        ), f"Wrong output shape in single example ({split}). Expected {expected_out_shape}, but got {list(output_data.shape)}"
 
 
 def waveforms_test(dataset, sr, process_output=False, plot_filename=None, audios_dir=None):
     input_data, output_data = _get_data(dataset)
 
     if plot_filename:
-        plot_waveforms([input_data[i, :]
-                       for i in range(input_data.shape[0])], plot_filename)
+        plot_waveforms([input_data[i, :] for i in range(input_data.shape[0])], plot_filename)
         if process_output:
             name, ext = os.path.splitext(plot_filename)
-            plot_waveforms([output_data[i, :] for i in range(
-                output_data.shape[0])], f"{name}_output{ext}")
+            plot_waveforms([output_data[i, :] for i in range(output_data.shape[0])], f"{name}_output{ext}")
     if audios_dir:
-        save_waveforms([input_data[i, :]
-                       for i in range(input_data.shape[0])], sr, audios_dir)
+        save_waveforms([input_data[i, :] for i in range(input_data.shape[0])], sr, audios_dir)
         if process_output:
-            save_waveforms([output_data[i, :] for i in range(
-                output_data.shape[0])], sr, f'{audios_dir}_output')
+            save_waveforms([output_data[i, :] for i in range(output_data.shape[0])], sr, f"{audios_dir}_output")
 
 
 def iteration_test(dataset):

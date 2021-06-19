@@ -5,7 +5,7 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
-from utils import print_metadata, find_files
+from utils import find_files, print_metadata
 
 
 def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
@@ -16,8 +16,7 @@ def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
         audio, sr = torchaudio.load(input_filename)
 
         segment_length = sr * length_seconds
-        n_segments = (audio.shape[1] // segment_length) + \
-            (1 if pad_last else 0)
+        n_segments = (audio.shape[1] // segment_length) + (1 if pad_last else 0)
 
         # Zero pad the last segment if needed
         pad = (n_segments * segment_length) - len(audio)
@@ -26,9 +25,8 @@ def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
 
         # Save each segment as {output_dir}/{original_name}_XXXX.{ext}
         for i in range(n_segments):
-            audio_segment = audio[:, i*segment_length:(i+1)*segment_length]
-            segment_name = os.path.join(
-                output_dir, f"{name}_{str(i).zfill(4)}{ext}")
+            audio_segment = audio[:, i * segment_length : (i + 1) * segment_length]
+            segment_name = os.path.join(output_dir, f"{name}_{str(i).zfill(4)}{ext}")
             torchaudio.save(segment_name, audio_segment, sr)
 
     except Exception as e:
@@ -37,12 +35,12 @@ def process_file(input_filename, output_dir, length_seconds=4, pad_last=True):
         raise e
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset_path', required=True)
-    ap.add_argument('--sliced_path', required=True)
-    ap.add_argument('--length_seconds', default=4, type=int)
-    ap.add_argument('--pad_last', action='store_true')
+    ap.add_argument("--dataset_path", required=True)
+    ap.add_argument("--sliced_path", required=True)
+    ap.add_argument("--length_seconds", default=4, type=int)
+    ap.add_argument("--pad_last", action="store_true")
     args = ap.parse_args()
 
     if not os.path.isdir(args.sliced_path):
@@ -58,5 +56,4 @@ if __name__ == '__main__':
             os.makedirs(dir_out)
 
         # Process the audio file
-        process_file(
-            f_in, dir_out, length_seconds=args.length_seconds, pad_last=args.pad_last)
+        process_file(f_in, dir_out, length_seconds=args.length_seconds, pad_last=args.pad_last)

@@ -19,6 +19,9 @@ def predict_evaluation_data(
     mixture_filenames = [f for f in find_files(evaluation_directory) if f.endswith("mixture.wav")]
 
     for f in tqdm(mixture_filenames):
+        if os.path.isdir(f.replace(evaluation_directory, output_directory)):
+            continue
+
         mixture, sr = torchaudio.load(f)
         if sr != 16000:
             mixture = torchaudio.transforms.Resample(sr, 16000)(mixture)
@@ -146,3 +149,29 @@ if __name__ == "__main__":
             max_snr=args.max_snr,
             sr=args.sr,
         )
+
+    # Get the model and the data mode
+    training_utils_dict = get_model(args.model)
+
+    model = training_utils_dict["model"]
+    data_mode = training_utils_dict["data_mode"]
+    # loss_fn = training_utils_dict["loss_fn"]
+    # loss_mode = training_utils_dict["loss_mode"]
+
+    assert os.path.isfile(args.checkpoint_name) and args.checkpoint_name.endswith(
+        ".tar"
+    ), "The specified checkpoint_name is not a valid checkpoint"
+    checkpoint = torch.load(args.checkpoint_name)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model = model.to(device)
+    model.eval()
+    print(f"Model loaded from checkpoint: {args.checkpoint_name}")
+
+    predict_evaluation_data(
+        evaluation_directory=args.evaluation_path,
+        output_directory=args.output_path,
+        model=model,
+        data_mode=data_mode,
+        length_seconds=4,
+        normalize=True,
+    )

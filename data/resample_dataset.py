@@ -5,7 +5,7 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
-from utils import print_metadata, find_files
+from utils import find_files, print_metadata
 
 
 def process_file(input_filename, output_filename, target_sr):
@@ -20,8 +20,7 @@ def process_file(input_filename, output_filename, target_sr):
         audio /= audio.max()
 
         # Resample from original_sr to target_sr
-        audio = torchaudio.transforms.Resample(
-            orig_freq=original_sr, new_freq=target_sr)(audio)
+        audio = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=target_sr)(audio)
         torchaudio.save(output_filename, audio, target_sr)
 
     except Exception as e:
@@ -30,11 +29,11 @@ def process_file(input_filename, output_filename, target_sr):
         raise e
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset_path', required=True)
-    ap.add_argument('--resampled_path', required=True)
-    ap.add_argument('--target_sr', default=16000, type=int)
+    ap.add_argument("--dataset_path", required=True)
+    ap.add_argument("--resampled_path", required=True)
+    ap.add_argument("--target_sr", default=16000, type=int)
     args = ap.parse_args()
 
     if not os.path.isdir(args.resampled_path):

@@ -5,14 +5,14 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
-from utils import print_metadata, find_files
+from utils import find_files, print_metadata
 
 
 def process_file(f):
-    '''
+    """
     Simple but effective method to remove audio files that are silence.
     Check the sum of the absolute value of the Tensor, delete the file if its sum is 0.
-    '''
+    """
     try:
         audio, original_sr = torchaudio.load(f)
         if audio.abs().sum() == 0:
@@ -25,9 +25,9 @@ def process_file(f):
         raise e
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset_path', required=True)
+    ap.add_argument("--dataset_path", required=True)
     args = ap.parse_args()
 
     files = list(find_files(args.dataset_path))

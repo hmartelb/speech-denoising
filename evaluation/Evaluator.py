@@ -5,9 +5,8 @@ from pprint import pprint
 import librosa
 import numpy as np
 import pandas as pd
-from pesq import pesq, PesqError
+from pesq import PesqError, pesq
 from pystoi.stoi import stoi
-
 from tqdm import tqdm
 
 
@@ -40,20 +39,20 @@ class Evaluator:
     def eval_single(self, ground_truth, estimation, idx):
         sdr, sir, sar = self.blind_sep_metrics(ground_truth, estimation, scaling=True)
         # sdr, sir, sar = 0,0,0
-        pesq_wb = self.PESQ(ground_truth[:,0], estimation[:,0], mode="wb")
+        pesq_wb = self.PESQ(ground_truth[:, 0], estimation[:, 0], mode="wb")
         if pesq_wb < -0.999:
             self.pesq_wb_errors += 1
         #     print(f"Error wb idx={idx}, value={pesq_wb}")
-        pesq_nb = self.PESQ(ground_truth[:,0], estimation[:,0], mode="nb")
+        pesq_nb = self.PESQ(ground_truth[:, 0], estimation[:, 0], mode="nb")
         if pesq_nb < -0.999:
             self.pesq_nb_errors += 1
         #     print(f"Error nb idx={idx}, value={pesq_nb}")
-        stoi = self.STOI(ground_truth[:,0], estimation[:,0])
+        stoi = self.STOI(ground_truth[:, 0], estimation[:, 0])
         # stoi = 0
 
         return {
             "SDR": sdr,
-            "SIR": sir, 
+            "SIR": sir,
             "SAR": sar,
             "PESQ-wb": pesq_wb,
             "PESQ-nb": pesq_nb,
@@ -62,12 +61,12 @@ class Evaluator:
 
     def eval_directory(self, ground_truth_path, estimations_path):
         # stats = {}
-        metrics = { "SDR": [], "SIR": [], "SAR": [], "PESQ-wb": [], "PESQ-nb": [], "STOI": [] }
+        metrics = {"SDR": [], "SIR": [], "SAR": [], "PESQ-wb": [], "PESQ-nb": [], "STOI": []}
         failures = 0
 
         mixture_files = list(find_files(ground_truth_path, extensions=f"{self.mixture}.wav"))
-        
-        for i,true_file in enumerate(tqdm(mixture_files)):
+
+        for i, true_file in enumerate(tqdm(mixture_files)):
             estimation_file = true_file.replace(ground_truth_path, estimations_path)
 
             # Get the names of the sources and load into array of shape [samples, sources]
@@ -79,14 +78,12 @@ class Evaluator:
             )
 
             # try:
-            
+
             single_metrics = self.eval_single(true_sources, estimated_sources, idx=i)
             for sm in single_metrics:
                 metrics[sm].append(single_metrics[sm])
             # except:
             #     failures += 1
-
-       
 
         print(f"Evaluation finished")
         print(f"- Directories (gt, pred): {ground_truth_path, estimations_path}")
@@ -133,20 +130,22 @@ class Evaluator:
         e_true = scale * reference
         e_res = estimate - e_true
 
-        Sss = np.sum((e_true**2), axis=0)
-        Snn = np.sum((e_res**2), axis=0)
+        Sss = np.sum((e_true ** 2), axis=0)
+        Snn = np.sum((e_res ** 2), axis=0)
 
         # SIR and SAR
         Rsr = np.dot(reference.T, e_res)
-        Rss = np.dot(reference.T, reference) ## FIXME: Is this needed? Check with np.sum((reference * reference), axis=0)
+        Rss = np.dot(
+            reference.T, reference
+        )  ## FIXME: Is this needed? Check with np.sum((reference * reference), axis=0)
 
         b = np.linalg.lstsq(Rss, Rsr)
         e_interf = np.dot(reference, b[0])
         e_artif = e_res - e_interf
 
         SDR = np.mean(10 * np.log10((Sss + eps) / (eps + Snn)))
-        SIR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_interf**2, axis=0))))
-        SAR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_artif**2, axis=0))))      
+        SIR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_interf ** 2, axis=0))))
+        SAR = np.mean(10 * np.log10((Sss + eps) / (eps + np.sum(e_artif ** 2, axis=0))))
 
         return SDR, SIR, SAR
 
